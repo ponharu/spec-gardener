@@ -250,7 +250,7 @@ export const main = async (): Promise<void> => {
     core.info(`Raw agent output:\n${output}`);
     const { result, parseFailed } = adapter.parseOutput(output);
     if (parseFailed) {
-      core.error(`Failed to parse agent output as JSON:\n${output}`);
+      core.error(`Failed to parse agent output as JSON.`);
     }
 
     await applyResult(octokit, owner, repo, issueNumber, result, issueContext);
