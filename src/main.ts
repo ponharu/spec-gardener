@@ -56,6 +56,46 @@ const buildComment = (content: string, authorLogin: string): string => {
 ${FOOTER}`;
 };
 
+const buildErrorComment = (runUrl: string): string => {
+  return `${COMMANDS_HELP}
+
+Spec Gardener encountered an error while processing this issue.
+
+Please check the workflow run for details:
+${runUrl}
+
+---
+${FOOTER}`;
+};
+
+const postErrorComment = async (
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  token: string,
+): Promise<void> => {
+  try {
+    const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+    const runId = process.env.GITHUB_RUN_ID ?? "";
+    const runUrl = runId
+      ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+      : `${serverUrl}/${owner}/${repo}/actions`;
+    const octokit = new Octokit({ auth: token });
+    await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      body: buildErrorComment(runUrl),
+    });
+  } catch (commentError) {
+    const fallback =
+      commentError instanceof Error
+        ? (commentError.stack ?? commentError.message)
+        : "Unknown error";
+    core.error(`Failed to post error comment: ${fallback}`);
+  }
+};
+
 const getRequiredInput = (name: string): string => {
   return core.getInput(name, { required: true });
 };
@@ -246,16 +286,20 @@ const shouldProcess = (
 };
 
 export const main = async (): Promise<void> => {
+  let owner = "";
+  let repo = "";
+  let issueNumber: number | undefined;
+  let token = "";
   try {
     const agent = getRequiredInput("agent");
-    const token = getRequiredInput("github_token");
+    token = getRequiredInput("github_token");
     const timeoutMs = getTimeoutInput(
       "agent_timeout_ms",
       DEFAULT_AGENT_TIMEOUT_MS,
     );
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
-    const [owner, repo] = repoSlug.split("/");
+    [owner, repo] = repoSlug.split("/");
     if (!owner || !repo) {
       throw new Error("Unable to resolve repository owner/name.");
     }
@@ -274,7 +318,7 @@ export const main = async (): Promise<void> => {
       return;
     }
 
-    const issueNumber = event.issue?.number;
+    issueNumber = event.issue?.number;
     if (!issueNumber) {
       throw new Error("Missing issue number in event payload.");
     }
@@ -286,7 +330,6 @@ export const main = async (): Promise<void> => {
       repo,
       issueNumber,
     );
-
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(issueContext);
@@ -299,7 +342,11 @@ export const main = async (): Promise<void> => {
 
     await applyResult(octokit, owner, repo, issueNumber, result, issueContext);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message =
+      error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
+    if (owner && repo && issueNumber && token) {
+      await postErrorComment(owner, repo, issueNumber, token);
+    }
     core.setFailed(message);
   }
 };
