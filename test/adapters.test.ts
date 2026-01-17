@@ -6,7 +6,10 @@ describe("parseCliOutput", () => {
     const result = parseCliOutput(
       JSON.stringify({ type: "question", content: "Need more info" }),
     );
-    expect(result).toEqual({ type: "question", content: "Need more info" });
+    expect(result).toEqual({
+      result: { type: "question", content: "Need more info" },
+      parseFailed: false,
+    });
   });
 
   it("parses completion JSON", () => {
@@ -14,22 +17,31 @@ describe("parseCliOutput", () => {
       JSON.stringify({ type: "complete", body: "Spec body" }),
     );
     expect(result).toEqual({
-      type: "complete",
-      body: "Spec body",
-      comment: "Spec updated by Spec Gardener.",
+      result: {
+        type: "complete",
+        body: "Spec body",
+        comment: "Spec updated by Spec Gardener.",
+      },
+      parseFailed: false,
     });
   });
 
   it("falls back to question on invalid JSON", () => {
     const result = parseCliOutput("plain output");
-    expect(result).toEqual({ type: "question", content: "plain output" });
+    expect(result).toEqual({
+      result: { type: "question", content: "plain output" },
+      parseFailed: true,
+    });
   });
 
   it("extracts JSON from wrapped output", () => {
     const result = parseCliOutput(
       'Output:\n```json\n{"type":"question","content":"More info"}\n```',
     );
-    expect(result).toEqual({ type: "question", content: "More info" });
+    expect(result).toEqual({
+      result: { type: "question", content: "More info" },
+      parseFailed: false,
+    });
   });
 });
 
