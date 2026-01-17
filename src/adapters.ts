@@ -58,6 +58,10 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   },
 };
 
+const appendSection = (parts: string[], title: string, body: string): void => {
+  parts.push("", title, body || "(empty)");
+};
+
 const buildDefaultPrompt = (
   context: IssueContext,
   customPrompt?: string,
@@ -86,20 +90,12 @@ const buildDefaultPrompt = (
 
   const trimmedPrompt = customPrompt?.trim();
   if (trimmedPrompt) {
-    promptParts.push("", "# Custom Instructions", trimmedPrompt);
+    appendSection(promptParts, "# Custom Instructions", trimmedPrompt);
   }
 
-  promptParts.push(
-    "",
-    "# Issue Title",
-    context.title || "(empty)",
-    "",
-    "# Issue Body",
-    context.body || "(empty)",
-    "",
-    "# Comments",
-    comments || "(no comments)",
-  );
+  appendSection(promptParts, "# Issue Title", context.title);
+  appendSection(promptParts, "# Issue Body", context.body);
+  appendSection(promptParts, "# Comments", comments || "(no comments)");
 
   return promptParts.join("\n");
 };
