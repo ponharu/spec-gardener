@@ -1,0 +1,6 @@
+{
+  "*.{ts,tsx,js,jsx,json,md,yml,yaml}": [
+    "bun oxfmt --no-error-on-unmatched-pattern",
+    "bun oxlint"
+  ]
+}

@@ -1,0 +1,28 @@
+name: "Spec Gardener"
+description: "Turn vague ideas into code-ready specifications via AI CLI tools."
+author: "ponharu"
+
+inputs:
+  agent:
+    description: "CLI agent command (codex, claude, gemini)"
+    required: true
+  github_token:
+    description: "GitHub token for API access"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: bun install --production
+    - name: Run Spec Gardener
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: bun run src/index.ts
+      env:
+        INPUT_AGENT: ${{ inputs.agent }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
