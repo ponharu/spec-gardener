@@ -136,6 +136,12 @@ or
 {"type":"complete","body":"...","comment":"optional completion comment"}
 ```
 
+or
+
+```json
+{"type":"no_change"}
+```
+
 ## Development
 
 ```bash

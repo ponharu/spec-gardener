@@ -261,6 +261,15 @@ const applyResult = async (
   result: CliResult,
   specContext: SpecContext,
 ): Promise<void> => {
+  if (result.type === "no_change") {
+    await octokit.rest.reactions.createForIssue({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      content: "+1",
+    });
+    return;
+  }
   if (result.type === "question") {
     const comment = buildComment(result.content, specContext.author);
     await octokit.rest.issues.createComment({

@@ -26,6 +26,14 @@ describe("parseCliOutput", () => {
     });
   });
 
+  it("parses no_change JSON", () => {
+    const result = parseCliOutput(JSON.stringify({ type: "no_change" }));
+    expect(result).toEqual({
+      result: { type: "no_change" },
+      parseFailed: false,
+    });
+  });
+
   it("falls back to question on invalid JSON", () => {
     const result = parseCliOutput("plain output");
     expect(result).toEqual({
@@ -57,6 +65,7 @@ describe("adapter prompt", () => {
     const prompt = adapter.buildPrompt(context);
     expect(prompt).toContain("Title");
     expect(prompt).toContain("Body");
+    expect(prompt).toContain("no_change");
     expect(prompt).toContain("alice");
     expect(prompt).toContain("First");
   });
