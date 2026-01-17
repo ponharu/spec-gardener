@@ -56,6 +56,19 @@ const buildComment = (content: string, authorLogin: string): string => {
 ${FOOTER}`;
 };
 
+const buildErrorComment = (content: string, authorLogin: string): string => {
+  return `${COMMANDS_HELP}
+
+@${authorLogin} Spec Gardener encountered an error while processing this issue:
+
+\`\`\`
+${content.trim() || "Unknown error"}
+\`\`\`
+
+---
+${FOOTER}`;
+};
+
 const getRequiredInput = (name: string): string => {
   return core.getInput(name, { required: true });
 };
@@ -246,16 +259,21 @@ const shouldProcess = (
 };
 
 export const main = async (): Promise<void> => {
+  let owner = "";
+  let repo = "";
+  let issueNumber: number | undefined;
+  let token = "";
+  let issueAuthor = "unknown";
   try {
     const agent = getRequiredInput("agent");
-    const token = getRequiredInput("github_token");
+    token = getRequiredInput("github_token");
     const timeoutMs = getTimeoutInput(
       "agent_timeout_ms",
       DEFAULT_AGENT_TIMEOUT_MS,
     );
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
-    const [owner, repo] = repoSlug.split("/");
+    [owner, repo] = repoSlug.split("/");
     if (!owner || !repo) {
       throw new Error("Unable to resolve repository owner/name.");
     }
@@ -274,7 +292,7 @@ export const main = async (): Promise<void> => {
       return;
     }
 
-    const issueNumber = event.issue?.number;
+    issueNumber = event.issue?.number;
     if (!issueNumber) {
       throw new Error("Missing issue number in event payload.");
     }
@@ -286,6 +304,7 @@ export const main = async (): Promise<void> => {
       repo,
       issueNumber,
     );
+    issueAuthor = issueContext.author;
 
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
@@ -299,7 +318,25 @@ export const main = async (): Promise<void> => {
 
     await applyResult(octokit, owner, repo, issueNumber, result, issueContext);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
+    const message =
+      error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
+    if (owner && repo && issueNumber && token) {
+      try {
+        const octokit = new Octokit({ auth: token });
+        await octokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: issueNumber,
+          body: buildErrorComment(message, issueAuthor),
+        });
+      } catch (commentError) {
+        const fallback =
+          commentError instanceof Error
+            ? commentError.message
+            : "Unknown error";
+        core.error(`Failed to post error comment: ${fallback}`);
+      }
+    }
     core.setFailed(message);
   }
 };
