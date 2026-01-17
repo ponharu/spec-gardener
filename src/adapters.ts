@@ -29,7 +29,7 @@ export type AgentConfig = {
 export type ProviderAdapter = {
   name: string;
   buildCommand: () => { cmd: string; args: string[] };
-  buildPrompt: (context: IssueContext) => string;
+  buildPrompt: (context: IssueContext, customPrompt?: string) => string;
   parseOutput: (output: string) => ParseResult;
 };
 
@@ -58,7 +58,14 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   },
 };
 
-const buildDefaultPrompt = (context: IssueContext): string => {
+const appendSection = (parts: string[], title: string, body: string): void => {
+  parts.push("", title, body || "(empty)");
+};
+
+const buildDefaultPrompt = (
+  context: IssueContext,
+  customPrompt?: string,
+): string => {
   const comments = context.comments
     .map(
       (comment, index) =>
@@ -66,7 +73,7 @@ const buildDefaultPrompt = (context: IssueContext): string => {
     )
     .join("\n\n");
 
-  return [
+  const promptParts = [
     "You are a requirements assistant that analyzes codebases to refine specifications.",
     "Read the codebase to understand the existing implementation.",
     "If the specification is insufficient, ask clarifying questions.",
@@ -79,16 +86,18 @@ const buildDefaultPrompt = (context: IssueContext): string => {
     '{"type":"question","content":"..."}',
     "or",
     '{"type":"complete","body":"...","comment":"optional completion comment"}',
-    "",
-    "# Issue Title",
-    context.title || "(empty)",
-    "",
-    "# Issue Body",
-    context.body || "(empty)",
-    "",
-    "# Comments",
-    comments || "(no comments)",
-  ].join("\n");
+  ];
+
+  const trimmedPrompt = customPrompt?.trim();
+  if (trimmedPrompt) {
+    appendSection(promptParts, "# Custom Instructions", trimmedPrompt);
+  }
+
+  appendSection(promptParts, "# Issue Title", context.title);
+  appendSection(promptParts, "# Issue Body", context.body);
+  appendSection(promptParts, "# Comments", comments || "(no comments)");
+
+  return promptParts.join("\n");
 };
 
 const parseJsonResult = (candidate: string): CliResult | null => {

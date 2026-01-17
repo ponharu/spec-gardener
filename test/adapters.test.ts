@@ -60,4 +60,17 @@ describe("adapter prompt", () => {
     expect(prompt).toContain("alice");
     expect(prompt).toContain("First");
   });
+
+  it("includes custom instructions when provided", () => {
+    const context: IssueContext = {
+      title: "Title",
+      body: "Body",
+      author: "bob",
+      comments: [],
+    };
+    const adapter = getAdapter("codex");
+    const prompt = adapter.buildPrompt(context, "Use RFC-style language.");
+    expect(prompt).toContain("# Custom Instructions");
+    expect(prompt).toContain("Use RFC-style language.");
+  });
 });

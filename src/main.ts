@@ -297,6 +297,7 @@ export const main = async (): Promise<void> => {
       "agent_timeout_ms",
       DEFAULT_AGENT_TIMEOUT_MS,
     );
+    const customPrompt = core.getInput("custom_prompt");
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
     [owner, repo] = repoSlug.split("/");
@@ -332,7 +333,7 @@ export const main = async (): Promise<void> => {
     );
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
-    const prompt = adapter.buildPrompt(issueContext);
+    const prompt = adapter.buildPrompt(issueContext, customPrompt);
     const output = await runProvider(cmd, args, prompt, timeoutMs);
     core.info(`Raw agent output:\n${output}`);
     const { result, parseFailed } = adapter.parseOutput(output);
