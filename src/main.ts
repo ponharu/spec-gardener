@@ -150,6 +150,57 @@ const getTimeoutInput = (name: string, fallbackMs: number): number => {
   return parsed;
 };
 
+type UserContentEditsResponse = {
+  repository?: {
+    issue?: {
+      userContentEdits?: { nodes?: Array<{ body?: string | null }> };
+    };
+    pullRequest?: {
+      userContentEdits?: { nodes?: Array<{ body?: string | null }> };
+    };
+  };
+};
+
+const fetchOriginalDescription = async (
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  number: number,
+  itemType: "issue" | "pullRequest",
+  fallbackBody: string,
+): Promise<string> => {
+  try {
+    const response = await octokit.graphql<UserContentEditsResponse>(
+      `query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          ${itemType}(number: $number) {
+            userContentEdits(first: 1) {
+              nodes {
+                body
+              }
+            }
+          }
+        }
+      }`,
+      { owner, repo, number },
+    );
+    const originalFromEdits =
+      itemType === "issue"
+        ? response.repository?.issue?.userContentEdits?.nodes?.[0]?.body
+        : response.repository?.pullRequest?.userContentEdits?.nodes?.[0]?.body;
+    if (originalFromEdits) {
+      return originalFromEdits;
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? (error.message ?? error.stack) : String(error);
+    const label =
+      itemType === "issue" ? "issue description" : "pull request description";
+    core.warning(`Failed to fetch original ${label}: ${message}`);
+  }
+  return fallbackBody;
+};
+
 const fetchIssueContext = async (
   octokit: Octokit,
   owner: string,
@@ -162,38 +213,14 @@ const fetchIssueContext = async (
     issue_number: issueNumber,
   });
   const issueBody = issueResponse.data.body ?? "";
-  let originalDescription = issueBody;
-  try {
-    const response = await octokit.graphql<{
-      repository?: {
-        issue?: {
-          userContentEdits?: { nodes?: Array<{ body?: string | null }> };
-        };
-      };
-    }>(
-      `query($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          issue(number: $number) {
-            userContentEdits(last: 1) {
-              nodes {
-                body
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, number: issueNumber },
-    );
-    const originalFromEdits =
-      response.repository?.issue?.userContentEdits?.nodes?.[0]?.body;
-    if (originalFromEdits) {
-      originalDescription = originalFromEdits;
-    }
-  } catch (error) {
-    const message =
-      error instanceof Error ? (error.message ?? error.stack) : String(error);
-    core.warning(`Failed to fetch original issue description: ${message}`);
-  }
+  const originalDescription = await fetchOriginalDescription(
+    octokit,
+    owner,
+    repo,
+    issueNumber,
+    "issue",
+    issueBody,
+  );
 
   const comments = await octokit.paginate(octokit.rest.issues.listComments, {
     owner,
@@ -227,40 +254,14 @@ const fetchPullRequestContext = async (
     pull_number: pullNumber,
   });
   const pullBody = pullResponse.data.body ?? "";
-  let originalDescription = pullBody;
-  try {
-    const response = await octokit.graphql<{
-      repository?: {
-        pullRequest?: {
-          userContentEdits?: { nodes?: Array<{ body?: string | null }> };
-        };
-      };
-    }>(
-      `query($owner: String!, $repo: String!, $number: Int!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            userContentEdits(last: 1) {
-              nodes {
-                body
-              }
-            }
-          }
-        }
-      }`,
-      { owner, repo, number: pullNumber },
-    );
-    const originalFromEdits =
-      response.repository?.pullRequest?.userContentEdits?.nodes?.[0]?.body;
-    if (originalFromEdits) {
-      originalDescription = originalFromEdits;
-    }
-  } catch (error) {
-    const message =
-      error instanceof Error ? (error.message ?? error.stack) : String(error);
-    core.warning(
-      `Failed to fetch original pull request description: ${message}`,
-    );
-  }
+  const originalDescription = await fetchOriginalDescription(
+    octokit,
+    owner,
+    repo,
+    pullNumber,
+    "pullRequest",
+    pullBody,
+  );
 
   const comments = await octokit.paginate(octokit.rest.issues.listComments, {
     owner,
