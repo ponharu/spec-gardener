@@ -59,6 +59,21 @@ const getRequiredInput = (name: string): string => {
   return core.getInput(name, { required: true });
 };
 
+const getTimeoutInput = (name: string, fallbackMs: number): number => {
+  const raw = core.getInput(name);
+  if (!raw.trim()) {
+    return fallbackMs;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    core.warning(
+      `Invalid ${name} value "${raw}", falling back to ${fallbackMs}ms.`,
+    );
+    return fallbackMs;
+  }
+  return parsed;
+};
+
 const fetchIssueContext = async (
   octokit: Octokit,
   owner: string,
@@ -94,6 +109,7 @@ const runProvider = async (
   cmd: string,
   args: string[],
   prompt: string,
+  timeoutMs: number,
 ): Promise<string> => {
   const cwd = process.env.GITHUB_WORKSPACE ?? process.cwd();
   core.info(`Running: ${cmd} ${args.join(" ")} (cwd: ${cwd})`);
@@ -111,21 +127,41 @@ const runProvider = async (
     throw new Error("Provider process stderr is not available.");
   }
 
-  const stdoutPromise = new Response(proc.stdout).text();
-  const stderrPromise = new Response(proc.stderr).text();
-  const exitCode = await proc.exited;
-  const stdout = await stdoutPromise;
-  const stderr = await stderrPromise;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const execute = async (): Promise<string> => {
+    const stdoutPromise = new Response(proc.stdout).text();
+    const stderrPromise = new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+    const stdout = await stdoutPromise;
+    const stderr = await stderrPromise;
 
-  if (exitCode !== 0) {
-    throw new Error(`Provider exited with code ${exitCode}: ${stderr}`);
+    if (exitCode !== 0) {
+      throw new Error(`Provider exited with code ${exitCode}: ${stderr}`);
+    }
+
+    if (stderr.trim()) {
+      core.info(`Provider stderr: ${stderr.trim()}`);
+    }
+
+    return stdout;
+  };
+
+  try {
+    if (timeoutMs > 0) {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          proc.kill();
+          reject(new Error(`Provider timed out after ${timeoutMs}ms.`));
+        }, timeoutMs);
+      });
+      return await Promise.race([execute(), timeoutPromise]);
+    }
+    return await execute();
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
-
-  if (stderr.trim()) {
-    core.info(`Provider stderr: ${stderr.trim()}`);
-  }
-
-  return stdout;
 };
 
 const applyResult = async (
@@ -209,6 +245,7 @@ export const main = async (): Promise<void> => {
   try {
     const agent = getRequiredInput("agent");
     const token = getRequiredInput("github_token");
+    const timeoutMs = getTimeoutInput("agent_timeout_ms", 120000);
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
     const [owner, repo] = repoSlug.split("/");
@@ -246,7 +283,7 @@ export const main = async (): Promise<void> => {
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(issueContext);
-    const output = await runProvider(cmd, args, prompt);
+    const output = await runProvider(cmd, args, prompt, timeoutMs);
     core.info(`Raw agent output:\n${output}`);
     const { result, parseFailed } = adapter.parseOutput(output);
     if (parseFailed) {
