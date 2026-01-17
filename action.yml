@@ -9,6 +9,10 @@ inputs:
   github_token:
     description: "GitHub token for API access"
     required: true
+  agent_timeout_ms:
+    description: "Timeout in milliseconds for the agent execution"
+    required: false
+    default: "120000"
 runs:
   using: "composite"
   steps:
@@ -26,3 +30,4 @@ runs:
       env:
         INPUT_AGENT: ${{ inputs.agent }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
+        INPUT_AGENT_TIMEOUT_MS: ${{ inputs.agent_timeout_ms }}

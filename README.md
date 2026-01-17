@@ -47,6 +47,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           agent: "codex"
+          agent_timeout_ms: "120000"
 ```
 
 ## Commands
@@ -63,6 +64,7 @@ Use these commands in issue comments to interact with Spec Gardener:
 | --- | --- | --- |
 | `github_token` | Token to comment and update issues. | Yes |
 | `agent` | CLI command to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes |
+| `agent_timeout_ms` | Timeout in milliseconds for the agent execution. | No (default: `120000`) |
 
 ## Behavior
 
