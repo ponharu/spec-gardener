@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { getAdapter, parseCliOutput, type SpecContext } from "../src/adapters";
+import {
+  getAdapter,
+  getAgentConfig,
+  parseCliOutput,
+  type SpecContext,
+} from "../src/adapters";
 
 describe("parseCliOutput", () => {
   it("parses question JSON", () => {
@@ -34,6 +39,24 @@ describe("parseCliOutput", () => {
     });
   });
 
+  it("parses status field alias", () => {
+    const result = parseCliOutput(
+      JSON.stringify({ status: "question", content: "Need more info" }),
+    );
+    expect(result).toEqual({
+      result: { type: "question", content: "Need more info" },
+      parseFailed: false,
+    });
+  });
+
+  it("falls back on empty output", () => {
+    const result = parseCliOutput("   ");
+    expect(result).toEqual({
+      result: { type: "question", content: "No output received from agent." },
+      parseFailed: true,
+    });
+  });
+
   it("falls back to question on invalid JSON", () => {
     const result = parseCliOutput("plain output");
     expect(result).toEqual({
@@ -49,6 +72,22 @@ describe("parseCliOutput", () => {
     expect(result).toEqual({
       result: { type: "question", content: "More info" },
       parseFailed: false,
+    });
+  });
+
+  it("falls back when JSON has unknown type", () => {
+    const result = parseCliOutput('{"type":"unknown"}');
+    expect(result).toEqual({
+      result: { type: "question", content: '{"type":"unknown"}' },
+      parseFailed: true,
+    });
+  });
+
+  it("falls back on malformed JSON with braces", () => {
+    const result = parseCliOutput("{broken}");
+    expect(result).toEqual({
+      result: { type: "question", content: "{broken}" },
+      parseFailed: true,
     });
   });
 });
@@ -108,5 +147,23 @@ describe("adapter prompt", () => {
     expect(prompt).toContain("# Changed Files");
     expect(prompt).toContain("src/main.ts");
     expect(prompt).toContain("modified");
+  });
+});
+
+describe("adapter selection", () => {
+  it("falls back for unknown agent", () => {
+    const adapter = getAdapter("custom-agent");
+    expect(adapter.buildCommand().args).toContain("custom-agent");
+  });
+
+  it("exposes known agent config", () => {
+    const adapter = getAdapter("codex");
+    const command = adapter.buildCommand();
+    expect(command.args.length).toBeGreaterThan(0);
+  });
+
+  it("returns configs for known agents only", () => {
+    expect(getAgentConfig("codex")?.name).toBe("codex");
+    expect(getAgentConfig("unknown")).toBeUndefined();
   });
 });

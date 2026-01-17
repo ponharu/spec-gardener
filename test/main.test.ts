@@ -1,0 +1,680 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+type CoreCalls = {
+  info: string[];
+  warning: string[];
+  error: string[];
+  setFailed: string[];
+};
+
+const coreCalls: CoreCalls = {
+  info: [],
+  warning: [],
+  error: [],
+  setFailed: [],
+};
+
+const coreInputs = new Map<string, string>();
+
+const coreMock = {
+  getInput: (name: string, options?: { required?: boolean }) => {
+    const value = coreInputs.get(name) ?? "";
+    if (options?.required && !value.trim()) {
+      throw new Error(`Missing required input: ${name}`);
+    }
+    return value;
+  },
+  info: (message: string) => coreCalls.info.push(message),
+  warning: (message: string) => coreCalls.warning.push(message),
+  error: (message: string) => coreCalls.error.push(message),
+  setFailed: (message: string) => coreCalls.setFailed.push(message),
+};
+
+type OctokitCalls = {
+  createComment: Array<Record<string, unknown>>;
+  updateIssue: Array<Record<string, unknown>>;
+  createReaction: Array<Record<string, unknown>>;
+};
+
+const octokitCalls: OctokitCalls = {
+  createComment: [],
+  updateIssue: [],
+  createReaction: [],
+};
+
+type CommentData = { author: string; body: string; createdAt: string };
+type FileData = {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+};
+
+type OctokitState = {
+  issueBody: string;
+  issueTitle: string;
+  issueAuthor: string;
+  pullBody: string;
+  pullTitle: string;
+  pullAuthor: string;
+  originalDescription?: string | null;
+  comments: CommentData[];
+  files: FileData[];
+  graphqlError?: Error;
+  createCommentError?: Error;
+};
+
+const octokitState: OctokitState = {
+  issueBody: "Issue body",
+  issueTitle: "Issue title",
+  issueAuthor: "alice",
+  pullBody: "PR body",
+  pullTitle: "PR title",
+  pullAuthor: "alice",
+  originalDescription: "Original description",
+  comments: [],
+  files: [],
+  createCommentError: undefined,
+};
+
+const resetOctokitState = () => {
+  octokitState.issueBody = "Issue body";
+  octokitState.issueTitle = "Issue title";
+  octokitState.issueAuthor = "alice";
+  octokitState.pullBody = "PR body";
+  octokitState.pullTitle = "PR title";
+  octokitState.pullAuthor = "alice";
+  octokitState.originalDescription = "Original description";
+  octokitState.comments = [];
+  octokitState.files = [];
+  octokitState.graphqlError = undefined;
+  octokitState.createCommentError = undefined;
+};
+
+const streamFromText = (text: string): ReadableStream<Uint8Array> => {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+};
+
+type SpawnConfig = {
+  stdout: string;
+  stderr: string;
+  exitCode?: number;
+  hang?: boolean;
+  stdoutType?: "stream" | "missing" | "number";
+  stderrType?: "stream" | "missing" | "number";
+};
+
+let spawnConfig: SpawnConfig = {
+  stdout: "",
+  stderr: "",
+  exitCode: 0,
+  stdoutType: "stream",
+  stderrType: "stream",
+};
+
+const spawnCalls: Array<{ args: string[] }> = [];
+let killCalled = false;
+
+const createSpawnProc = () => {
+  const exitCode = spawnConfig.exitCode ?? 0;
+  const stdoutType = spawnConfig.stdoutType ?? "stream";
+  const stderrType = spawnConfig.stderrType ?? "stream";
+  return {
+    stdout:
+      stdoutType === "stream"
+        ? streamFromText(spawnConfig.stdout)
+        : stdoutType === "number"
+          ? 0
+          : null,
+    stderr:
+      stderrType === "stream"
+        ? streamFromText(spawnConfig.stderr)
+        : stderrType === "number"
+          ? 0
+          : null,
+    exited: spawnConfig.hang
+      ? new Promise<number>(() => undefined)
+      : Promise.resolve(exitCode),
+    kill: () => {
+      killCalled = true;
+    },
+  };
+};
+
+mock.module("@actions/core", () => ({
+  default: coreMock,
+}));
+
+mock.module("octokit", () => {
+  class Octokit {
+    rest: {
+      issues: {
+        get: () => Promise<{ data: unknown }>;
+        listComments: () => Promise<never>;
+        createComment: (params: Record<string, unknown>) => Promise<void>;
+        update: (params: Record<string, unknown>) => Promise<void>;
+      };
+      pulls: {
+        get: () => Promise<{ data: unknown }>;
+        listFiles: () => Promise<never>;
+      };
+      reactions: {
+        createForIssue: (params: Record<string, unknown>) => Promise<void>;
+      };
+    };
+    paginate: (fn: unknown) => Promise<unknown[]>;
+    graphql: () => Promise<unknown>;
+    constructor() {
+      const issues = {
+        get: async () => ({
+          data: {
+            title: octokitState.issueTitle,
+            body: octokitState.issueBody,
+            user: { login: octokitState.issueAuthor },
+          },
+        }),
+        listComments: async () => {
+          throw new Error("paginate should handle listComments");
+        },
+        createComment: async (params: Record<string, unknown>) => {
+          if (octokitState.createCommentError) {
+            throw octokitState.createCommentError;
+          }
+          octokitCalls.createComment.push(params);
+        },
+        update: async (params: Record<string, unknown>) => {
+          octokitCalls.updateIssue.push(params);
+        },
+      };
+      const pulls = {
+        get: async () => ({
+          data: {
+            title: octokitState.pullTitle,
+            body: octokitState.pullBody,
+            user: { login: octokitState.pullAuthor },
+          },
+        }),
+        listFiles: async () => {
+          throw new Error("paginate should handle listFiles");
+        },
+      };
+      const reactions = {
+        createForIssue: async (params: Record<string, unknown>) => {
+          octokitCalls.createReaction.push(params);
+        },
+      };
+      this.rest = { issues, pulls, reactions };
+      this.paginate = async (fn: unknown) => {
+        if (fn === issues.listComments) {
+          return octokitState.comments.map((comment) => ({
+            user: { login: comment.author },
+            body: comment.body,
+            created_at: comment.createdAt,
+          }));
+        }
+        if (fn === pulls.listFiles) {
+          return octokitState.files.map((file) => ({
+            filename: file.filename,
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            changes: file.changes,
+          }));
+        }
+        return [];
+      };
+      this.graphql = async () => {
+        if (octokitState.graphqlError) {
+          throw octokitState.graphqlError;
+        }
+        return {
+          repository: {
+            issue: {
+              userContentEdits: {
+                nodes: [{ body: octokitState.originalDescription }],
+              },
+            },
+            pullRequest: {
+              userContentEdits: {
+                nodes: [{ body: octokitState.originalDescription }],
+              },
+            },
+          },
+        };
+      };
+    }
+  }
+
+  return { Octokit };
+});
+
+const repoRoot = process.cwd();
+const tempFiles: string[] = [];
+
+const writeEvent = async (payload: unknown) => {
+  const path = join(
+    tmpdir(),
+    `spec-gardener-event-${Math.random().toString(16).slice(2)}.json`,
+  );
+  await Bun.write(path, JSON.stringify(payload));
+  process.env.GITHUB_EVENT_PATH = path;
+  tempFiles.push(path);
+};
+
+const setDefaultInputs = () => {
+  coreInputs.set("agent", "codex");
+  coreInputs.set("github_token", "token");
+  coreInputs.set("agent_timeout_ms", "120000");
+  coreInputs.set("custom_prompt", "");
+};
+
+const resetCalls = () => {
+  coreCalls.info = [];
+  coreCalls.warning = [];
+  coreCalls.error = [];
+  coreCalls.setFailed = [];
+  octokitCalls.createComment = [];
+  octokitCalls.updateIssue = [];
+  octokitCalls.createReaction = [];
+  spawnCalls.length = 0;
+  killCalled = false;
+};
+
+const originalSpawn = Bun.spawn;
+
+beforeEach(() => {
+  resetCalls();
+  resetOctokitState();
+  setDefaultInputs();
+  spawnConfig = {
+    stdout: "",
+    stderr: "",
+    exitCode: 0,
+    stdoutType: "stream",
+    stderrType: "stream",
+  };
+  Bun.spawn = ((args: string[]) => {
+    spawnCalls.push({ args });
+    return createSpawnProc();
+  }) as typeof Bun.spawn;
+  process.env.GITHUB_REPOSITORY = "acme/spec-gardener";
+  process.env.GITHUB_EVENT_NAME = "issues";
+  process.env.GITHUB_WORKSPACE = repoRoot;
+  process.env.GITHUB_SERVER_URL = "https://github.example";
+  process.env.GITHUB_RUN_ID = "123";
+});
+
+afterEach(() => {
+  Bun.spawn = originalSpawn;
+  for (const path of tempFiles.splice(0, tempFiles.length)) {
+    try {
+      rmSync(path, { force: true });
+    } catch {
+      // Best-effort cleanup for temp files.
+    }
+  }
+});
+
+describe("main", () => {
+  it("skips issue_comment without command", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    await writeEvent({ comment: { body: "hello" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(spawnCalls.length).toBe(0);
+    expect(octokitCalls.createComment.length).toBe(0);
+  });
+
+  it("skips issue_comment with footer", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    await writeEvent({
+      comment: { body: "test\n---\n🤖 Generated by Spec Gardener" },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    expect(spawnCalls.length).toBe(0);
+  });
+
+  it("skips pull_request when body already has footer", async () => {
+    process.env.GITHUB_EVENT_NAME = "pull_request";
+    await writeEvent({
+      pull_request: {
+        number: 3,
+        body: "Done\n---\n🤖 Generated by Spec Gardener",
+      },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    expect(spawnCalls.length).toBe(0);
+    expect(coreCalls.info.some((msg) => msg.includes("Skipping"))).toBe(true);
+  });
+
+  it("skips issue when body already has footer", async () => {
+    process.env.GITHUB_EVENT_NAME = "issues";
+    await writeEvent({
+      issue: { number: 4, body: "Done\n---\n🤖 Generated by Spec Gardener" },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    expect(spawnCalls.length).toBe(0);
+    expect(coreCalls.info.some((msg) => msg.includes("Skipping"))).toBe(true);
+  });
+
+  it("posts help comment on /spec-gardener help", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    await writeEvent({
+      issue: { number: 5 },
+      comment: {
+        body: "/spec-gardener help",
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.createComment[0].body as string;
+    expect(body).toContain("/spec-gardener reset");
+  });
+
+  it("runs on /spec-gardener comment without created_at", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({
+      issue: { number: 6 },
+      comment: { body: "/spec-gardener" },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    expect(spawnCalls.length).toBe(1);
+  });
+
+  it("handles no_change result", async () => {
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 7, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createReaction.length).toBe(1);
+  });
+
+  it("handles question result", async () => {
+    spawnConfig.stdout = JSON.stringify({
+      type: "question",
+      content: "Need more",
+    });
+    await writeEvent({ issue: { number: 9, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.createComment[0].body as string;
+    expect(body).toContain("Need more");
+    expect(body).toContain("@alice");
+  });
+
+  it("handles complete result", async () => {
+    spawnConfig.stdout = JSON.stringify({
+      type: "complete",
+      body: "New spec",
+      comment: "Updated",
+    });
+    await writeEvent({ issue: { number: 11, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.updateIssue.length).toBe(1);
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.updateIssue[0].body as string;
+    expect(body).toContain("New spec");
+  });
+
+  it("logs parse error and still comments", async () => {
+    spawnConfig.stdout = "not-json";
+    await writeEvent({ issue: { number: 13, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.error.some((msg) => msg.includes("Failed to parse"))).toBe(
+      true,
+    );
+    expect(octokitCalls.createComment.length).toBe(1);
+  });
+
+  it("resets context on /spec-gardener reset", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    octokitState.issueBody = "Current spec";
+    octokitState.originalDescription = "Original spec";
+    octokitState.comments = [
+      {
+        author: "bob",
+        body: "Old comment",
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        author: "sam",
+        body: "New comment",
+        createdAt: "2024-01-03T00:00:00Z",
+      },
+      {
+        author: "jane",
+        body: "Bad date",
+        createdAt: "invalid",
+      },
+    ];
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({
+      issue: { number: 17 },
+      comment: {
+        body: "/spec-gardener reset",
+        created_at: "2024-01-02T00:00:00Z",
+      },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(prompt).toContain("# Original Description");
+    expect(prompt).toContain("Original spec");
+    expect(prompt).toContain("# Current Specification");
+    expect(prompt).toContain("Original spec");
+    expect(prompt).toContain("New comment");
+    expect(prompt).not.toContain("Old comment");
+    expect(prompt).not.toContain("Bad date");
+  });
+
+  it("keeps context on reset with invalid created_at", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    octokitState.issueBody = "Current spec";
+    octokitState.originalDescription = "Original spec";
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({
+      issue: { number: 18 },
+      comment: {
+        body: "/spec-gardener reset",
+        created_at: "not-a-date",
+      },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(prompt).toContain("Current spec");
+    expect(prompt).not.toContain("Original spec\n\n---");
+  });
+
+  it("keeps context on reset without created_at", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
+    octokitState.issueBody = "Current spec";
+    octokitState.originalDescription = "Original spec";
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({
+      issue: { number: 33 },
+      comment: {
+        body: "/spec-gardener reset",
+      },
+    });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(prompt).toContain("Current spec");
+    expect(prompt).not.toContain("Original spec\n\n---");
+  });
+
+  it("includes changed files for pull requests", async () => {
+    process.env.GITHUB_EVENT_NAME = "pull_request";
+    octokitState.files = [
+      {
+        filename: "src/main.ts",
+        status: "modified",
+        additions: 1,
+        deletions: 0,
+        changes: 1,
+      },
+    ];
+    octokitState.comments = [
+      { author: "liz", body: "PR comment", createdAt: "2024-02-01" },
+    ];
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ pull_request: { number: 19, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(prompt).toContain("# Changed Files");
+    expect(prompt).toContain("src/main.ts");
+    expect(prompt).toContain("PR comment");
+  });
+
+  it("falls back when original description fetch fails", async () => {
+    octokitState.graphqlError = new Error("graphql failed");
+    octokitState.issueBody = "Fallback body";
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 21, body: "Fallback body" } });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(
+      coreCalls.warning.some((msg) => msg.includes("Failed to fetch")),
+    ).toBe(true);
+    expect(prompt).toContain("Fallback body");
+  });
+
+  it("strips footer from stored issue body", async () => {
+    octokitState.issueBody = "Spec body\n---\n🤖 Generated by Spec Gardener";
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 22, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
+    expect(prompt).toContain("Spec body");
+    expect(prompt).not.toContain("🤖 Generated by Spec Gardener");
+  });
+
+  it("honors timeout and posts error comment", async () => {
+    spawnConfig.hang = true;
+    coreInputs.set("agent_timeout_ms", "1");
+    await writeEvent({ issue: { number: 23, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(killCalled).toBe(true);
+    expect(octokitCalls.createComment.length).toBe(1);
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+
+  it("throws when stdout is missing", async () => {
+    spawnConfig.stdoutType = "missing";
+    await writeEvent({ issue: { number: 24, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+
+  it("throws when stderr is missing", async () => {
+    spawnConfig.stderrType = "number";
+    await writeEvent({ issue: { number: 25, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+
+  it("logs stderr output from provider", async () => {
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    spawnConfig.stderr = "warning";
+    await writeEvent({ issue: { number: 26, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(
+      coreCalls.info.some((msg) => msg.includes("Provider stderr: warning")),
+    ).toBe(true);
+  });
+
+  it("warns on invalid timeout input", async () => {
+    coreInputs.set("agent_timeout_ms", "-5");
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 27, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.warning.some((msg) => msg.includes("Invalid"))).toBe(true);
+  });
+
+  it("uses fallback timeout when input is blank", async () => {
+    coreInputs.set("agent_timeout_ms", " ");
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 28, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.warning.length).toBe(0);
+  });
+
+  it("runs without timeout when timeout is zero", async () => {
+    coreInputs.set("agent_timeout_ms", "0");
+    spawnConfig.stdout = JSON.stringify({ type: "no_change" });
+    await writeEvent({ issue: { number: 34, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createReaction.length).toBe(1);
+  });
+
+  it("handles provider non-zero exit code", async () => {
+    spawnConfig.exitCode = 2;
+    spawnConfig.stderr = "boom";
+    await writeEvent({ issue: { number: 29, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+
+  it("logs failure when error comment posting fails", async () => {
+    spawnConfig.exitCode = 2;
+    spawnConfig.stderr = "boom";
+    octokitState.createCommentError = new Error("comment failed");
+    await writeEvent({ issue: { number: 30, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(
+      coreCalls.error.some((msg) =>
+        msg.includes("Failed to post error comment"),
+      ),
+    ).toBe(true);
+  });
+
+  it("fails when repository slug is missing", async () => {
+    process.env.GITHUB_REPOSITORY = "";
+    await writeEvent({ issue: { number: 31, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+
+  it("fails when event path is missing", async () => {
+    process.env.GITHUB_EVENT_PATH = "";
+    await writeEvent({ issue: { number: 32, body: "Hi" } });
+    process.env.GITHUB_EVENT_PATH = "";
+    const { main } = await import("../src/main");
+    await main();
+    expect(coreCalls.setFailed.length).toBe(1);
+  });
+});
