@@ -62,6 +62,8 @@ Use these commands in issue and pull request comments to interact with Spec Gard
 | Command | Description |
 | --- | --- |
 | `/spec-gardener` | Analyze the issue and continue refining the specification |
+| `/spec-gardener reset` | Re-analyze from the original description and comments from the reset point onward |
+| `/spec-gardener help` | Show available commands without running the agent |
 
 ## Configuration
 
@@ -79,6 +81,8 @@ With the example workflow above:
 - **New issue or pull request created** - Automatically analyzed and refined
 - **Issue or pull request edited** - Re-analyzed (skipped if already processed by Spec Gardener)
 - **Comment with `/spec-gardener`** - Continues the conversation to refine the spec
+- **Comment with `/spec-gardener reset`** - Re-runs analysis using the original description and later comments
+- **Comment with `/spec-gardener help`** - Posts command help without running the agent
 
 The action prevents infinite loops by checking for its footer in the issue body and only responding to comments containing the `/spec-gardener` command.
 
@@ -106,11 +110,7 @@ When Spec Gardener updates an issue or pull request, it preserves the original d
 Comments include available commands and mention the issue author:
 
 ```markdown
-<details><summary>Commands</summary>
-
-- `/spec-gardener` - Continue the conversation to refine this specification
-
-</details>
+💡 Type `/spec-gardener help` for available commands
 
 @author [Agent's response or summary]
 
