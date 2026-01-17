@@ -8,7 +8,7 @@ GitHub Action that transforms vague issues into detailed, code-ready specificati
 
 ## Requirements
 
-- One of the supported agent CLIs installed and authenticated on the runner
+- One of the supported agent CLIs available on PATH (or installable via `bunx`)
 - `GITHUB_TOKEN` with `issues: write` permission
 
 ## How It Works
@@ -64,7 +64,7 @@ Use these commands in issue comments to interact with Spec Gardener:
 | Input | Description | Required |
 | --- | --- | --- |
 | `github_token` | Token to comment and update issues. | Yes |
-| `agent` | CLI command to execute (`codex`, `claude`, `gemini`). | Yes |
+| `agent` | CLI command to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes |
 
 ## Behavior
 
