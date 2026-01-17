@@ -1,13 +1,18 @@
 name: Spec Gardener
 on:
   issues:
-    types: [opened, edited]
+    types:
+      - opened
+      - edited
+      - labeled
   issue_comment:
-    types: [created]
+    types: 
+      - created
 
 jobs:
   spec-gardener:
     runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'spec-gardener')
     permissions:
       issues: write
       contents: read
