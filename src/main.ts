@@ -68,6 +68,34 @@ ${runUrl}
 ${FOOTER}`;
 };
 
+const postErrorComment = async (
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  token: string,
+): Promise<void> => {
+  try {
+    const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+    const runId = process.env.GITHUB_RUN_ID ?? "";
+    const runUrl = runId
+      ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+      : `${serverUrl}/${owner}/${repo}/actions`;
+    const octokit = new Octokit({ auth: token });
+    await octokit.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      body: buildErrorComment(runUrl),
+    });
+  } catch (commentError) {
+    const fallback =
+      commentError instanceof Error
+        ? (commentError.stack ?? commentError.message)
+        : "Unknown error";
+    core.error(`Failed to post error comment: ${fallback}`);
+  }
+};
+
 const getRequiredInput = (name: string): string => {
   return core.getInput(name, { required: true });
 };
@@ -317,26 +345,7 @@ export const main = async (): Promise<void> => {
     const message =
       error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
     if (owner && repo && issueNumber && token) {
-      try {
-        const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
-        const runId = process.env.GITHUB_RUN_ID ?? "";
-        const runUrl = runId
-          ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
-          : `${serverUrl}/${owner}/${repo}/actions`;
-        const octokit = new Octokit({ auth: token });
-        await octokit.rest.issues.createComment({
-          owner,
-          repo,
-          issue_number: issueNumber,
-          body: buildErrorComment(runUrl),
-        });
-      } catch (commentError) {
-        const fallback =
-          commentError instanceof Error
-            ? (commentError.stack ?? commentError.message)
-            : "Unknown error";
-        core.error(`Failed to post error comment: ${fallback}`);
-      }
+      await postErrorComment(owner, repo, issueNumber, token);
     }
     core.setFailed(message);
   }
