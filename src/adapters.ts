@@ -15,14 +15,43 @@ export type CliResult =
   | { type: "question"; content: string }
   | { type: "complete"; body: string; comment?: string };
 
+export type AgentConfig = {
+  name: string;
+  package: string;
+  args: string[];
+};
+
 export type ProviderAdapter = {
   name: string;
-  buildArgs: () => string[];
+  buildCommand: () => { cmd: string; args: string[] };
   buildPrompt: (context: IssueContext) => string;
   parseOutput: (output: string) => CliResult;
 };
 
-const DEFAULT_COMPLETION_COMMENT = "Spec updated by SpecGardener.";
+const DEFAULT_COMPLETION_COMMENT = "Spec updated by Spec Gardener.";
+
+const AGENT_CONFIGS: Record<string, AgentConfig> = {
+  claude: {
+    name: "claude",
+    package: "@anthropic-ai/claude-code@latest",
+    args: [
+      "--dangerously-skip-permissions",
+      "--allowed-tools",
+      "Read,Glob,Grep,Bash",
+      "--print",
+    ],
+  },
+  codex: {
+    name: "codex",
+    package: "@openai/codex@latest",
+    args: ["exec", "--dangerously-bypass-approvals-and-sandbox"],
+  },
+  gemini: {
+    name: "gemini",
+    package: "@google/gemini-cli@latest",
+    args: ["--approval-mode", "yolo"],
+  },
+};
 
 const buildDefaultPrompt = (context: IssueContext): string => {
   const comments = context.comments
@@ -33,8 +62,9 @@ const buildDefaultPrompt = (context: IssueContext): string => {
     .join("\n\n");
 
   return [
-    "You are a requirements assistant.",
-    "If the specification is insufficient, ask questions.",
+    "You are a requirements assistant that analyzes codebases to refine specifications.",
+    "Read the codebase to understand the existing implementation.",
+    "If the specification is insufficient, ask clarifying questions.",
     "If the specification is sufficient, output the completed spec.",
     "",
     "Return JSON only.",
@@ -108,29 +138,32 @@ export const parseCliOutput = (output: string): CliResult => {
   return { type: "question", content: trimmed };
 };
 
-const baseAdapter: ProviderAdapter = {
-  name: "base",
-  buildArgs: () => [],
+const createAdapter = (config: AgentConfig): ProviderAdapter => ({
+  name: config.name,
+  buildCommand: () => ({
+    cmd: "bunx",
+    args: [config.package, ...config.args],
+  }),
   buildPrompt: buildDefaultPrompt,
   parseOutput: parseCliOutput,
-};
-
-const adapters: Record<string, ProviderAdapter> = {
-  codex: {
-    ...baseAdapter,
-    name: "codex",
-  },
-  claude: {
-    ...baseAdapter,
-    name: "claude",
-  },
-  gemini: {
-    ...baseAdapter,
-    name: "gemini",
-  },
-};
+});
 
 export const getAdapter = (agent: string): ProviderAdapter => {
   const key = agent.toLowerCase();
-  return adapters[key] ?? { ...baseAdapter, name: key };
+  const config = AGENT_CONFIGS[key];
+
+  if (config) {
+    return createAdapter(config);
+  }
+
+  // Fallback for unknown agents: use agent name as package
+  return createAdapter({
+    name: key,
+    package: key,
+    args: [],
+  });
+};
+
+export const getAgentConfig = (agent: string): AgentConfig | undefined => {
+  return AGENT_CONFIGS[agent.toLowerCase()];
 };

@@ -90,56 +90,24 @@ const fetchIssueContext = async (
   };
 };
 
-const BUNX_FALLBACK_MAP: Record<string, string> = {
-  claude: "@anthropic-ai/claude-code",
-  codex: "@openai/codex",
-  gemini: "@google/gemini-cli",
-};
-
-const spawnProvider = (
-  command: string,
-  args: string[],
-): ReturnType<typeof Bun.spawn> => {
-  return Bun.spawn([command, ...args], {
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-};
-
 const runProvider = async (
-  agentCommand: string,
+  cmd: string,
   args: string[],
   prompt: string,
 ): Promise<string> => {
-  let proc: ReturnType<typeof Bun.spawn>;
-  try {
-    proc = spawnProvider(agentCommand, args);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("Executable not found")) {
-      throw error;
-    }
-    const bunxTarget =
-      BUNX_FALLBACK_MAP[agentCommand.toLowerCase()] ?? agentCommand;
-    core.info(
-      `Agent "${agentCommand}" not found; falling back to bunx (${bunxTarget}).`,
-    );
-    proc = spawnProvider("bunx", [bunxTarget, ...args]);
-  }
+  core.info(`Running: ${cmd} ${args.join(" ")}`);
 
-  if (!proc.stdin || typeof proc.stdin === "number") {
-    throw new Error("Provider process stdin is not available.");
-  }
+  const proc = Bun.spawn([cmd, ...args, prompt], {
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
   if (!proc.stdout || typeof proc.stdout === "number") {
     throw new Error("Provider process stdout is not available.");
   }
   if (!proc.stderr || typeof proc.stderr === "number") {
     throw new Error("Provider process stderr is not available.");
   }
-
-  proc.stdin.write(prompt);
-  proc.stdin.end();
 
   const stdoutPromise = new Response(proc.stdout).text();
   const stderrPromise = new Response(proc.stderr).text();
@@ -274,8 +242,9 @@ export const main = async (): Promise<void> => {
     );
 
     const adapter = getAdapter(agent);
+    const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(issueContext);
-    const output = await runProvider(agent, adapter.buildArgs(), prompt);
+    const output = await runProvider(cmd, args, prompt);
     const result = adapter.parseOutput(output);
 
     await applyResult(octokit, owner, repo, issueNumber, result, issueContext);

@@ -16,7 +16,7 @@ describe("parseCliOutput", () => {
     expect(result).toEqual({
       type: "complete",
       body: "Spec body",
-      comment: "Spec updated by SpecGardener.",
+      comment: "Spec updated by Spec Gardener.",
     });
   });
 
