@@ -4,11 +4,20 @@ export type IssueComment = {
   createdAt: string;
 };
 
-export type IssueContext = {
+export type ChangedFile = {
+  filename: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  changes: number;
+};
+
+export type SpecContext = {
   title: string;
   body: string;
   comments: IssueComment[];
   author: string;
+  changedFiles?: ChangedFile[];
 };
 
 export type CliResult =
@@ -29,7 +38,7 @@ export type AgentConfig = {
 export type ProviderAdapter = {
   name: string;
   buildCommand: () => { cmd: string; args: string[] };
-  buildPrompt: (context: IssueContext, customPrompt?: string) => string;
+  buildPrompt: (context: SpecContext, customPrompt?: string) => string;
   parseOutput: (output: string) => ParseResult;
 };
 
@@ -63,7 +72,7 @@ const appendSection = (parts: string[], title: string, body: string): void => {
 };
 
 const buildDefaultPrompt = (
-  context: IssueContext,
+  context: SpecContext,
   customPrompt?: string,
 ): string => {
   const comments = context.comments
@@ -96,6 +105,17 @@ const buildDefaultPrompt = (
   appendSection(promptParts, "# Issue Title", context.title);
   appendSection(promptParts, "# Issue Body", context.body);
   appendSection(promptParts, "# Comments", comments || "(no comments)");
+  if (context.changedFiles) {
+    const files = context.changedFiles.length
+      ? context.changedFiles
+          .map(
+            (file) =>
+              `${file.filename} (${file.status}; +${file.additions} -${file.deletions}; ${file.changes} changes)`,
+          )
+          .join("\n")
+      : "(no files changed)";
+    appendSection(promptParts, "# Changed Files", files);
+  }
 
   return promptParts.join("\n");
 };

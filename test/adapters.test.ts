@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getAdapter, parseCliOutput, type IssueContext } from "../src/adapters";
+import { getAdapter, parseCliOutput, type SpecContext } from "../src/adapters";
 
 describe("parseCliOutput", () => {
   it("parses question JSON", () => {
@@ -47,7 +47,7 @@ describe("parseCliOutput", () => {
 
 describe("adapter prompt", () => {
   it("includes issue context", () => {
-    const context: IssueContext = {
+    const context: SpecContext = {
       title: "Title",
       body: "Body",
       author: "bob",
@@ -62,7 +62,7 @@ describe("adapter prompt", () => {
   });
 
   it("includes custom instructions when provided", () => {
-    const context: IssueContext = {
+    const context: SpecContext = {
       title: "Title",
       body: "Body",
       author: "bob",
@@ -72,5 +72,28 @@ describe("adapter prompt", () => {
     const prompt = adapter.buildPrompt(context, "Use RFC-style language.");
     expect(prompt).toContain("# Custom Instructions");
     expect(prompt).toContain("Use RFC-style language.");
+  });
+
+  it("includes changed files when provided", () => {
+    const context: SpecContext = {
+      title: "Title",
+      body: "Body",
+      author: "bob",
+      comments: [],
+      changedFiles: [
+        {
+          filename: "src/main.ts",
+          status: "modified",
+          additions: 10,
+          deletions: 2,
+          changes: 12,
+        },
+      ],
+    };
+    const adapter = getAdapter("codex");
+    const prompt = adapter.buildPrompt(context);
+    expect(prompt).toContain("# Changed Files");
+    expect(prompt).toContain("src/main.ts");
+    expect(prompt).toContain("modified");
   });
 });

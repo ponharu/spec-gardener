@@ -1,7 +1,7 @@
 {
   "name": "spec-gardener",
   "version": "0.1.0",
-  "description": "GitHub Action that refines Issue specs via external AI CLIs.",
+  "description": "GitHub Action that refines issue and pull request specs via external AI CLIs.",
   "keywords": ["github", "github-actions", "ai", "cli", "spec"],
   "homepage": "https://github.com/ponharu/spec-gardener#readme",
   "bugs": {
