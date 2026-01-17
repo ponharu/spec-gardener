@@ -15,6 +15,11 @@ export type CliResult =
   | { type: "question"; content: string }
   | { type: "complete"; body: string; comment?: string };
 
+export type ParseResult = {
+  result: CliResult;
+  parseFailed: boolean;
+};
+
 export type AgentConfig = {
   name: string;
   package: string;
@@ -25,7 +30,7 @@ export type ProviderAdapter = {
   name: string;
   buildCommand: () => { cmd: string; args: string[] };
   buildPrompt: (context: IssueContext) => string;
-  parseOutput: (output: string) => CliResult;
+  parseOutput: (output: string) => ParseResult;
 };
 
 const DEFAULT_COMPLETION_COMMENT = "Spec updated by Spec Gardener.";
@@ -108,16 +113,19 @@ const parseJsonResult = (candidate: string): CliResult | null => {
   return null;
 };
 
-export const parseCliOutput = (output: string): CliResult => {
+export const parseCliOutput = (output: string): ParseResult => {
   const trimmed = output.trim();
   if (!trimmed) {
-    return { type: "question", content: "No output received from agent." };
+    return {
+      result: { type: "question", content: "No output received from agent." },
+      parseFailed: true,
+    };
   }
 
   try {
     const direct = parseJsonResult(trimmed);
     if (direct) {
-      return direct;
+      return { result: direct, parseFailed: false };
     }
   } catch {
     // Try extracting JSON from a larger payload.
@@ -130,14 +138,14 @@ export const parseCliOutput = (output: string): CliResult => {
       const sliced = trimmed.slice(firstBrace, lastBrace + 1);
       const extracted = parseJsonResult(sliced);
       if (extracted) {
-        return extracted;
+        return { result: extracted, parseFailed: false };
       }
     } catch {
       // Fall back to raw output.
     }
   }
 
-  return { type: "question", content: trimmed };
+  return { result: { type: "question", content: trimmed }, parseFailed: true };
 };
 
 const createAdapter = (config: AgentConfig): ProviderAdapter => ({
