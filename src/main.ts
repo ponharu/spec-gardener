@@ -76,11 +76,11 @@ ${FOOTER}`;
 };
 
 const buildComment = (content: string, authorLogin: string): string => {
-  return `${COMMANDS_HINT}
-
-@${authorLogin} ${content}
+  return `@${authorLogin} ${content}
 
 ---
+${COMMANDS_HINT}
+
 ${FOOTER}`;
 };
 
@@ -92,14 +92,14 @@ ${FOOTER}`;
 };
 
 const buildErrorComment = (runUrl: string): string => {
-  return `${COMMANDS_HINT}
-
-Spec Gardener encountered an error while processing this issue.
+  return `Spec Gardener encountered an error while processing this issue.
 
 Please check the workflow run for details:
 ${runUrl}
 
 ---
+${COMMANDS_HINT}
+
 ${FOOTER}`;
 };
 
