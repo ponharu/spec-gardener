@@ -66,6 +66,8 @@ const buildDefaultPrompt = (context: IssueContext): string => {
     "Read the codebase to understand the existing implementation.",
     "If the specification is insufficient, ask clarifying questions.",
     "If the specification is sufficient, output the completed spec.",
+    "Do not include code examples, snippets, or pseudo-code.",
+    "Describe requirements, behavior, and required functional changes using implementation-agnostic language.",
     "",
     "Return JSON only.",
     "Format:",
