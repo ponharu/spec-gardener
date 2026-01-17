@@ -95,9 +95,11 @@ const runProvider = async (
   args: string[],
   prompt: string,
 ): Promise<string> => {
-  core.info(`Running: ${cmd} ${args.join(" ")}`);
+  const cwd = process.env.GITHUB_WORKSPACE ?? process.cwd();
+  core.info(`Running: ${cmd} ${args.join(" ")} (cwd: ${cwd})`);
 
   const proc = Bun.spawn([cmd, ...args, prompt], {
+    cwd,
     stdout: "pipe",
     stderr: "pipe",
   });
