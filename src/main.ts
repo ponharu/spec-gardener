@@ -26,13 +26,14 @@ const parseCommand = (text: string): CommentCommand | null => {
     return null;
   }
   const subcommand = match[1]?.toLowerCase();
-  if (subcommand === "reset") {
-    return "reset";
+  switch (subcommand) {
+    case "reset":
+      return "reset";
+    case "help":
+      return "help";
+    default:
+      return "continue";
   }
-  if (subcommand === "help") {
-    return "help";
-  }
-  return "continue";
 };
 
 const extractOriginalBody = (body: string): string => {
@@ -65,7 +66,7 @@ const applyResetContext = (
     comments: context.comments.filter((comment) => {
       const commentTime = Date.parse(comment.createdAt);
       if (Number.isNaN(commentTime)) {
-        return true;
+        return false;
       }
       return commentTime >= resetTime;
     }),
