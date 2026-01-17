@@ -80,7 +80,6 @@ const buildComment = (content: string, authorLogin: string): string => {
 
 ---
 ${COMMANDS_HINT}
-
 ${FOOTER}`;
 };
 
@@ -99,7 +98,6 @@ ${runUrl}
 
 ---
 ${COMMANDS_HINT}
-
 ${FOOTER}`;
 };
 
