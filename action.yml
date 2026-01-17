@@ -13,6 +13,9 @@ inputs:
     description: "Timeout in milliseconds for the agent execution"
     required: false
     default: "120000"
+  custom_prompt:
+    description: "Custom instructions to append to the prompt"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -31,3 +34,4 @@ runs:
         INPUT_AGENT: ${{ inputs.agent }}
         INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
         INPUT_AGENT_TIMEOUT_MS: ${{ inputs.agent_timeout_ms }}
+        INPUT_CUSTOM_PROMPT: ${{ inputs.custom_prompt }}
