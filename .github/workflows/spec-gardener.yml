@@ -1,0 +1,23 @@
+name: Spec Gardener
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+
+jobs:
+  spec-gardener:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Spec Gardener
+        uses: ponharu/spec-gardener@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          agent: "gemini"
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

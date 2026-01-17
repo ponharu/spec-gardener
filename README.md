@@ -34,15 +34,13 @@ on:
     types: [created]
 
 jobs:
-  refine:
+  spec-gardener:
     runs-on: ubuntu-latest
     permissions:
       issues: write
       contents: read
     steps:
       - uses: actions/checkout@v6
-
-      # Install and authenticate your agent CLI here
 
       - name: Run Spec Gardener
         uses: ponharu/spec-gardener@main
