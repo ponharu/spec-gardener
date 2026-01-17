@@ -15,6 +15,7 @@ export type ChangedFile = {
 export type SpecContext = {
   title: string;
   body: string;
+  originalDescription: string;
   comments: IssueComment[];
   author: string;
   changedFiles?: ChangedFile[];
@@ -108,7 +109,12 @@ const buildDefaultPrompt = (
   }
 
   appendSection(promptParts, "# Issue Title", context.title);
-  appendSection(promptParts, "# Issue Body", context.body);
+  appendSection(
+    promptParts,
+    "# Original Description",
+    context.originalDescription,
+  );
+  appendSection(promptParts, "# Current Specification", context.body);
   appendSection(promptParts, "# Comments", comments || "(no comments)");
   if (context.changedFiles) {
     const files = context.changedFiles.length

@@ -58,12 +58,14 @@ describe("adapter prompt", () => {
     const context: SpecContext = {
       title: "Title",
       body: "Body",
+      originalDescription: "Original",
       author: "bob",
       comments: [{ author: "alice", body: "First", createdAt: "2024-01-01" }],
     };
     const adapter = getAdapter("codex");
     const prompt = adapter.buildPrompt(context);
     expect(prompt).toContain("Title");
+    expect(prompt).toContain("Original");
     expect(prompt).toContain("Body");
     expect(prompt).toContain("no_change");
     expect(prompt).toContain("alice");
@@ -74,6 +76,7 @@ describe("adapter prompt", () => {
     const context: SpecContext = {
       title: "Title",
       body: "Body",
+      originalDescription: "Original",
       author: "bob",
       comments: [],
     };
@@ -87,6 +90,7 @@ describe("adapter prompt", () => {
     const context: SpecContext = {
       title: "Title",
       body: "Body",
+      originalDescription: "Original",
       author: "bob",
       comments: [],
       changedFiles: [
