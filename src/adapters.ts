@@ -22,7 +22,8 @@ export type SpecContext = {
 
 export type CliResult =
   | { type: "question"; content: string }
-  | { type: "complete"; body: string; comment?: string };
+  | { type: "complete"; body: string; comment?: string }
+  | { type: "no_change" };
 
 export type ParseResult = {
   result: CliResult;
@@ -86,7 +87,8 @@ const buildDefaultPrompt = (
     "You are a requirements assistant that analyzes codebases to refine specifications.",
     "Read the codebase to understand the existing implementation.",
     "If the specification is insufficient, ask clarifying questions.",
-    "If the specification is sufficient, output the completed spec.",
+    "If the specification is sufficient and no changes are needed, output no_change.",
+    "If the specification is sufficient and needs updates, output the completed spec.",
     "Do not include code examples, snippets, pseudo-code, or code blocks.",
     "Focus on requirements, functional changes, and expected behavior, not implementation details.",
     "Use implementation-agnostic language that is clear and readable to any engineer.",
@@ -96,6 +98,8 @@ const buildDefaultPrompt = (
     '{"type":"question","content":"..."}',
     "or",
     '{"type":"complete","body":"...","comment":"optional completion comment"}',
+    "or",
+    '{"type":"no_change"}',
   ];
 
   const trimmedPrompt = customPrompt?.trim();
@@ -139,6 +143,9 @@ const parseJsonResult = (candidate: string): CliResult | null => {
       body: parsed.body,
       comment: parsed.comment || DEFAULT_COMPLETION_COMMENT,
     };
+  }
+  if (type === "no_change") {
+    return { type: "no_change" };
   }
   return null;
 };
