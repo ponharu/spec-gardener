@@ -4,22 +4,23 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Test](https://github.com/ponharu/spec-gardener/actions/workflows/test.yml/badge.svg)](https://github.com/ponharu/spec-gardener/actions/workflows/test.yml)
 
-GitHub Action that transforms vague issues into detailed, code-ready specifications using AI CLI tools. It analyzes your codebase context and refines issue descriptions through conversation.
+GitHub Action that transforms vague issues and pull requests into detailed, code-ready specifications using AI CLI tools. It analyzes your codebase context and refines descriptions through conversation.
 
 ## Requirements
 
 - One of the supported agent CLIs available on PATH (or installable via `bunx`)
-- `GITHUB_TOKEN` with `issues: write` permission
+- `GITHUB_TOKEN` with `issues: write` and `pull-requests: read` permissions
 
 ## How It Works
 
-1. When an issue is created (or `/spec-gardener` command is used), the action gathers the issue title, body, and comments.
-2. It sends the context to the configured AI CLI agent.
-3. The agent analyzes the codebase and either:
+1. When an issue or pull request is created (or `/spec-gardener` command is used), the action gathers the title, body, and comments.
+2. For pull requests, it also includes the list of changed files to ground the refinement.
+3. It sends the context to the configured AI CLI agent.
+4. The agent analyzes the codebase and either:
    - Asks clarifying questions via a comment
-   - Updates the issue body with a refined specification
-4. The original description is preserved in a collapsible section.
-5. Use `/spec-gardener` in comments to continue the conversation and further refine the spec.
+   - Updates the issue or pull request body with a refined specification
+5. The original description is preserved in a collapsible section.
+6. Use `/spec-gardener` in comments to continue the conversation and further refine the spec.
 
 ## Usage
 
@@ -30,6 +31,8 @@ name: Spec Gardener
 on:
   issues:
     types: [opened, edited]
+  pull_request:
+    types: [opened, edited]
   issue_comment:
     types: [created]
 
@@ -38,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: read
       contents: read
     steps:
       - uses: actions/checkout@v6
@@ -53,7 +57,7 @@ jobs:
 
 ## Commands
 
-Use these commands in issue comments to interact with Spec Gardener:
+Use these commands in issue and pull request comments to interact with Spec Gardener:
 
 | Command | Description |
 | --- | --- |
@@ -72,8 +76,8 @@ Use these commands in issue comments to interact with Spec Gardener:
 
 With the example workflow above:
 
-- **New issue created** - Automatically analyzed and refined
-- **Issue edited** - Re-analyzed (skipped if already processed by Spec Gardener)
+- **New issue or pull request created** - Automatically analyzed and refined
+- **Issue or pull request edited** - Re-analyzed (skipped if already processed by Spec Gardener)
 - **Comment with `/spec-gardener`** - Continues the conversation to refine the spec
 
 The action prevents infinite loops by checking for its footer in the issue body and only responding to comments containing the `/spec-gardener` command.
@@ -82,7 +86,7 @@ The action prevents infinite loops by checking for its footer in the issue body 
 
 ### Issue Body
 
-When Spec Gardener updates an issue, it preserves the original description:
+When Spec Gardener updates an issue or pull request, it preserves the original description:
 
 ```markdown
 [Refined specification from the agent]
