@@ -56,14 +56,13 @@ const buildComment = (content: string, authorLogin: string): string => {
 ${FOOTER}`;
 };
 
-const buildErrorComment = (content: string, authorLogin: string): string => {
+const buildErrorComment = (runUrl: string): string => {
   return `${COMMANDS_HELP}
 
-@${authorLogin} Spec Gardener encountered an error while processing this issue:
+Spec Gardener encountered an error while processing this issue.
 
-\`\`\`
-${content.trim() || "Unknown error"}
-\`\`\`
+Please check the workflow run for details:
+${runUrl}
 
 ---
 ${FOOTER}`;
@@ -263,7 +262,6 @@ export const main = async (): Promise<void> => {
   let repo = "";
   let issueNumber: number | undefined;
   let token = "";
-  let issueAuthor = "unknown";
   try {
     const agent = getRequiredInput("agent");
     token = getRequiredInput("github_token");
@@ -304,8 +302,6 @@ export const main = async (): Promise<void> => {
       repo,
       issueNumber,
     );
-    issueAuthor = issueContext.author;
-
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(issueContext);
@@ -322,17 +318,22 @@ export const main = async (): Promise<void> => {
       error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
     if (owner && repo && issueNumber && token) {
       try {
+        const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+        const runId = process.env.GITHUB_RUN_ID ?? "";
+        const runUrl = runId
+          ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+          : `${serverUrl}/${owner}/${repo}/actions`;
         const octokit = new Octokit({ auth: token });
         await octokit.rest.issues.createComment({
           owner,
           repo,
           issue_number: issueNumber,
-          body: buildErrorComment(message, issueAuthor),
+          body: buildErrorComment(runUrl),
         });
       } catch (commentError) {
         const fallback =
           commentError instanceof Error
-            ? commentError.message
+            ? (commentError.stack ?? commentError.message)
             : "Unknown error";
         core.error(`Failed to post error comment: ${fallback}`);
       }
