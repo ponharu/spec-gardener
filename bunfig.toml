@@ -1,0 +1,10 @@
+env = false
+telemetry = false
+
+[install]
+exact = true
+linker = "hoisted"
+minimumReleaseAge = 604800 # 7 days
+
+[run]
+bun = true
