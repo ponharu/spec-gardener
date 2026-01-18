@@ -1,14 +1,19 @@
 name: Test
+
 on:
   pull_request:
   push:
     branches:
       - main
+      - release
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
 permissions:
   contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
