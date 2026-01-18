@@ -11,6 +11,7 @@ import {
   buildSpecBody,
   normalizeTitle,
 } from "./format";
+import { formatLogBlock, formatParsedResult } from "./logging";
 
 const postErrorComment = async (
   owner: string,
@@ -236,9 +237,11 @@ export const main = async (): Promise<void> => {
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(adjustedContext, customPrompt);
+    core.info(formatLogBlock("Prompt sent to agent", prompt));
     const output = await runProvider(cmd, args, prompt, timeoutMs);
-    core.info(`Raw agent output:\n${output}`);
+    core.info(formatLogBlock("Raw agent output", output));
     const { result, parseFailed } = adapter.parseOutput(output);
+    core.info(formatParsedResult(result));
     if (parseFailed) {
       core.error(`Failed to parse agent output as JSON.`);
     }
