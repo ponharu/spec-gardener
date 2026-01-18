@@ -48,7 +48,6 @@ const DEFAULT_PROMPT_TEMPLATE: PromptTemplate = {
     "You are a requirements assistant that analyzes codebases to refine specifications.",
     "Read the codebase to understand the existing implementation.",
     "If the specification is insufficient, ask clarifying questions.",
-    "If the specification is sufficient and no changes are needed, output no_change.",
     'If the specification is already clear and complete, return {"type":"no_change"}.',
     "Only return complete when you actually refine or improve the body.",
     "Do not rewrite the body with the same or similar content.",
