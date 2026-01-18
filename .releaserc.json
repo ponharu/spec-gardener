@@ -7,7 +7,7 @@
     [
       "@semantic-release/exec",
       {
-        "publishCmd": "git tag -f v${nextRelease.major} ${nextRelease.gitTag} && git push origin -f v${nextRelease.major}"
+        "publishCmd": "git tag -f v${nextRelease.version.split('.')[0]} ${nextRelease.gitTag} && git push origin -f v${nextRelease.version.split('.')[0]}"
       }
     ],
     [
