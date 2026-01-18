@@ -24,7 +24,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@actions/core": "1.11.1",
+    "@actions/core": "2.0.2",
     "octokit": "4.1.4"
   },
   "devDependencies": {
