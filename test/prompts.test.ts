@@ -6,7 +6,6 @@ describe("buildPrompt", () => {
   const baseContext: SpecContext = {
     title: "Title",
     body: "Body",
-    originalDescription: "Original",
     author: "bob",
     comments: [],
   };

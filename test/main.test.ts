@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { FOOTER } from "../src/constants";
 
 type CoreCalls = {
   info: string[];
@@ -61,7 +62,7 @@ type OctokitState = {
   pullBody: string;
   pullTitle: string;
   pullAuthor: string;
-  originalDescription?: string | null;
+  userContentEdits: Array<string | null>;
   comments: CommentData[];
   files: FileData[];
   graphqlError?: Error;
@@ -75,7 +76,7 @@ const octokitState: OctokitState = {
   pullBody: "PR body",
   pullTitle: "PR title",
   pullAuthor: "alice",
-  originalDescription: "Original description",
+  userContentEdits: ["Original description"],
   comments: [],
   files: [],
   createCommentError: undefined,
@@ -88,7 +89,7 @@ const resetOctokitState = () => {
   octokitState.pullBody = "PR body";
   octokitState.pullTitle = "PR title";
   octokitState.pullAuthor = "alice";
-  octokitState.originalDescription = "Original description";
+  octokitState.userContentEdits = ["Original description"];
   octokitState.comments = [];
   octokitState.files = [];
   octokitState.graphqlError = undefined;
@@ -251,12 +252,12 @@ mock.module("octokit", () => {
           repository: {
             issue: {
               userContentEdits: {
-                nodes: [{ body: octokitState.originalDescription }],
+                nodes: octokitState.userContentEdits.map((body) => ({ body })),
               },
             },
             pullRequest: {
               userContentEdits: {
-                nodes: [{ body: octokitState.originalDescription }],
+                nodes: octokitState.userContentEdits.map((body) => ({ body })),
               },
             },
           },
@@ -484,7 +485,7 @@ describe("main", () => {
   it("resets context on /spec-gardener reset", async () => {
     process.env.GITHUB_EVENT_NAME = "issue_comment";
     octokitState.issueBody = "Current spec";
-    octokitState.originalDescription = "Original spec";
+    octokitState.userContentEdits = ["Original spec", `Refined spec\n\n---\n\n${FOOTER}`];
     octokitState.comments = [
       {
         author: "bob",
@@ -513,10 +514,9 @@ describe("main", () => {
     const { main } = await import("../src/main");
     await main();
     const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
-    expect(prompt).toContain("# Original Description");
-    expect(prompt).toContain("Original spec");
     expect(prompt).toContain("# Current Specification");
     expect(prompt).toContain("Original spec");
+    expect(prompt).not.toContain("Current spec");
     expect(prompt).toContain("New comment");
     expect(prompt).not.toContain("Old comment");
     expect(prompt).not.toContain("Bad date");
@@ -525,7 +525,7 @@ describe("main", () => {
   it("keeps context on reset with invalid created_at", async () => {
     process.env.GITHUB_EVENT_NAME = "issue_comment";
     octokitState.issueBody = "Current spec";
-    octokitState.originalDescription = "Original spec";
+    octokitState.userContentEdits = ["Original spec"];
     spawnConfig.stdout = JSON.stringify({ type: "no_change" });
     await writeEvent({
       issue: { number: 18 },
@@ -544,7 +544,7 @@ describe("main", () => {
   it("keeps context on reset without created_at", async () => {
     process.env.GITHUB_EVENT_NAME = "issue_comment";
     octokitState.issueBody = "Current spec";
-    octokitState.originalDescription = "Original spec";
+    octokitState.userContentEdits = ["Original spec"];
     spawnConfig.stdout = JSON.stringify({ type: "no_change" });
     await writeEvent({
       issue: { number: 33 },
@@ -582,10 +582,17 @@ describe("main", () => {
   });
 
   it("falls back when original description fetch fails", async () => {
+    process.env.GITHUB_EVENT_NAME = "issue_comment";
     octokitState.graphqlError = new Error("graphql failed");
     octokitState.issueBody = "Fallback body";
     spawnConfig.stdout = JSON.stringify({ type: "no_change" });
-    await writeEvent({ issue: { number: 21, body: "Fallback body" } });
+    await writeEvent({
+      issue: { number: 21, body: "Fallback body" },
+      comment: {
+        body: "/spec-gardener reset",
+        created_at: "2024-01-02T00:00:00Z",
+      },
+    });
     const { main } = await import("../src/main");
     await main();
     const prompt = spawnCalls[0].args[spawnCalls[0].args.length - 1];
