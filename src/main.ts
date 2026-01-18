@@ -15,23 +15,25 @@ import { formatLogBlock, formatParsedResult } from "./logging";
 
 type MentionOn = "question" | "complete" | "error";
 
+const ALLOWED_MENTION_ON: MentionOn[] = ["question", "complete", "error"];
+const ALLOWED_MENTION_ON_SET = new Set<MentionOn>(ALLOWED_MENTION_ON);
+
 const parseMentionOn = (raw: string): Set<MentionOn> => {
-  const allowed: MentionOn[] = ["question", "complete", "error"];
-  const allowedSet = new Set<MentionOn>(allowed);
   if (!raw.trim()) {
     return new Set();
   }
   const result = new Set<MentionOn>();
   for (const entry of raw.split(",")) {
-    const normalized = entry.trim().toLowerCase();
-    if (!normalized) {
+    const trimmedEntry = entry.trim();
+    if (!trimmedEntry) {
       continue;
     }
-    if (allowedSet.has(normalized as MentionOn)) {
+    const normalized = trimmedEntry.toLowerCase();
+    if (ALLOWED_MENTION_ON_SET.has(normalized as MentionOn)) {
       result.add(normalized as MentionOn);
     } else {
       core.warning(
-        `Invalid mention_on value "${entry.trim()}"; supported values: ${allowed.join(", ")}.`,
+        `Invalid mention_on value "${trimmedEntry}"; supported values: ${ALLOWED_MENTION_ON.join(", ")}.`,
       );
     }
   }
