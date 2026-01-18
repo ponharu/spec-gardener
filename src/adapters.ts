@@ -108,12 +108,12 @@ export const parseCliOutput = (output: string): ParseResult => {
     try {
       return parseJsonResult(candidate);
     } catch {
-      // Try repairing malformed JSON before parsing.
-    }
-    try {
-      return parseJsonResult(repairJson(candidate));
-    } catch {
-      return null;
+      // First attempt failed, try repairing malformed JSON before parsing again.
+      try {
+        return parseJsonResult(repairJson(candidate));
+      } catch {
+        return null;
+      }
     }
   };
 
