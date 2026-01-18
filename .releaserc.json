@@ -2,8 +2,22 @@
   "$schema": "https://json.schemastore.org/semantic-release.json",
   "branches": ["main"],
   "plugins": [
-    "@semantic-release/commit-analyzer",
+    ["@semantic-release/commit-analyzer", { "preset": "conventionalcommits" }],
     "@semantic-release/release-notes-generator",
-    "@semantic-release/github"
+    [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "git tag -f v${nextRelease.major} ${nextRelease.gitTag} && git push origin -f v${nextRelease.major}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "failCommentCondition": false,
+        "labels": ["r: semantic-release"],
+        "releasedLabels": ["released :bookmark:"],
+        "successCommentCondition": false
+      }
+    ]
   ]
 }
