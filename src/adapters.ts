@@ -1,3 +1,5 @@
+import { buildPrompt } from "./prompts";
+
 export type IssueComment = {
   author: string;
   body: string;
@@ -62,62 +64,6 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     package: "@google/gemini-cli@latest",
     args: ["--approval-mode", "yolo"],
   },
-};
-
-const appendSection = (parts: string[], title: string, body: string): void => {
-  parts.push("", title, body || "(empty)");
-};
-
-const buildDefaultPrompt = (context: SpecContext, customPrompt?: string): string => {
-  const comments = context.comments
-    .map(
-      (comment, index) =>
-        `# Comment ${index + 1}\nAuthor: ${comment.author}\nCreated: ${comment.createdAt}\n${comment.body}`,
-    )
-    .join("\n\n");
-
-  const promptParts = [
-    "You are a requirements assistant that analyzes codebases to refine specifications.",
-    "Read the codebase to understand the existing implementation.",
-    "If the specification is insufficient, ask clarifying questions.",
-    "If the specification is sufficient and no changes are needed, output no_change.",
-    "If the specification is sufficient and needs updates, output the completed spec.",
-    "When outputting a completed spec, you may include a refined title only if the current title needs improvement.",
-    "Do not include code examples, snippets, pseudo-code, or code blocks.",
-    "Focus on requirements, functional changes, and expected behavior, not implementation details.",
-    "Use implementation-agnostic language that is clear and readable to any engineer.",
-    "",
-    "Return JSON only.",
-    "Format:",
-    '{"type":"question","content":"..."}',
-    "or",
-    '{"type":"complete","body":"...","comment":"optional completion comment","title":"optional refined title"}',
-    "or",
-    '{"type":"no_change"}',
-  ];
-
-  const trimmedPrompt = customPrompt?.trim();
-  if (trimmedPrompt) {
-    appendSection(promptParts, "# Custom Instructions", trimmedPrompt);
-  }
-
-  appendSection(promptParts, "# Issue Title", context.title);
-  appendSection(promptParts, "# Original Description", context.originalDescription);
-  appendSection(promptParts, "# Current Specification", context.body);
-  appendSection(promptParts, "# Comments", comments || "(no comments)");
-  if (context.changedFiles) {
-    const files = context.changedFiles.length
-      ? context.changedFiles
-          .map(
-            (file) =>
-              `${file.filename} (${file.status}; +${file.additions} -${file.deletions}; ${file.changes} changes)`,
-          )
-          .join("\n")
-      : "(no files changed)";
-    appendSection(promptParts, "# Changed Files", files);
-  }
-
-  return promptParts.join("\n");
 };
 
 const parseJsonResult = (candidate: string): CliResult | null => {
@@ -189,7 +135,7 @@ const createAdapter = (config: AgentConfig): ProviderAdapter => ({
     cmd: "bunx",
     args: [config.package, ...config.args],
   }),
-  buildPrompt: buildDefaultPrompt,
+  buildPrompt: buildPrompt,
   parseOutput: parseCliOutput,
 });
 
