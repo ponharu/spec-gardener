@@ -19,5 +19,7 @@ describe("logging helpers", () => {
     expect(formatted).toContain("[Spec Gardener] Parsed result:");
     expect(formatted).toContain("type: 'complete'");
     expect(formatted).toContain("body: 'Body'");
+    expect(formatted).toContain("comment: 'Done'");
+    expect(formatted).toContain("title: 'Title'");
   });
 });
