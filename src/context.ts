@@ -36,7 +36,7 @@ const fetchOriginalDescription = async (
       `query($owner: String!, $repo: String!, $number: Int!) {
         repository(owner: $owner, name: $repo) {
           ${itemType}(number: $number) {
-            userContentEdits(first: 100) {
+            userContentEdits(last: 100) {
               nodes {
                 body
               }
@@ -48,12 +48,9 @@ const fetchOriginalDescription = async (
     );
     const content = response.repository?.[itemType];
     const nodes = content?.userContentEdits?.nodes ?? [];
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const body = nodes[index]?.body;
-      if (typeof body !== "string") {
-        continue;
-      }
-      if (!body.includes(FOOTER)) {
+    for (const node of nodes.slice().reverse()) {
+      const body = node?.body;
+      if (typeof body === "string" && !body.includes(FOOTER)) {
         return body;
       }
     }
