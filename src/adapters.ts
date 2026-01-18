@@ -1,3 +1,4 @@
+import { repairJson } from "repair-json-stream";
 import { buildPrompt } from "./prompts";
 
 export type IssueComment = {
@@ -103,13 +104,22 @@ export const parseCliOutput = (output: string): ParseResult => {
     };
   }
 
-  try {
-    const direct = parseJsonResult(trimmed);
-    if (direct) {
-      return { result: direct, parseFailed: false };
+  const parseCandidate = (candidate: string): CliResult | null => {
+    try {
+      return parseJsonResult(candidate);
+    } catch {
+      // Try repairing malformed JSON before parsing.
     }
-  } catch {
-    // Try extracting JSON from a larger payload.
+    try {
+      return parseJsonResult(repairJson(candidate));
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = parseCandidate(trimmed);
+  if (direct) {
+    return { result: direct, parseFailed: false };
   }
 
   const firstBrace = trimmed.indexOf("{");
@@ -117,7 +127,7 @@ export const parseCliOutput = (output: string): ParseResult => {
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     try {
       const sliced = trimmed.slice(firstBrace, lastBrace + 1);
-      const extracted = parseJsonResult(sliced);
+      const extracted = parseCandidate(sliced);
       if (extracted) {
         return { result: extracted, parseFailed: false };
       }

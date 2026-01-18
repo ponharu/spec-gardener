@@ -7,6 +7,7 @@
       "dependencies": {
         "@actions/core": "2.0.2",
         "octokit": "5.0.5",
+        "repair-json-stream": "1.2.0",
       },
       "devDependencies": {
         "@semantic-release/commit-analyzer": "13.0.1",
@@ -512,6 +513,8 @@
     "readable-stream": ["readable-stream@2.3.8", "", { "dependencies": { "core-util-is": "~1.0.0", "inherits": "~2.0.3", "isarray": "~1.0.0", "process-nextick-args": "~2.0.0", "safe-buffer": "~5.1.1", "string_decoder": "~1.1.1", "util-deprecate": "~1.0.1" } }, "sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA=="],
 
     "registry-auth-token": ["registry-auth-token@5.1.0", "", { "dependencies": { "@pnpm/npm-conf": "^2.1.0" } }, "sha512-GdekYuwLXLxMuFTwAPg5UKGLW/UXzQrZvH/Zj791BQif5T05T0RsaLfHc9q3ZOKi7n+BoprPD9mJ0O0k4xzUlw=="],
+
+    "repair-json-stream": ["repair-json-stream@1.2.0", "", { "bin": { "repair-json-stream": "dist/cli.js" } }, "sha512-51fZqpmLQ9Z3Jxp5YiCUHG9mxnHXHzbYxl5LxsYRhgJwZCsjzymWLZC/xlP0uXJAnVl2A5286zUO+/kNu1ap3w=="],
 
     "require-directory": ["require-directory@2.1.1", "", {}, "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q=="],
 

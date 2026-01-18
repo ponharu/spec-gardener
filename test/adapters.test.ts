@@ -100,6 +100,22 @@ describe("parseCliOutput", () => {
       parseFailed: true,
     });
   });
+
+  it("repairs trailing commas in JSON output", () => {
+    const result = parseCliOutput('{"type":"question","content":"Hello",}');
+    expect(result).toEqual({
+      result: { type: "question", content: "Hello" },
+      parseFailed: false,
+    });
+  });
+
+  it("repairs single-quoted JSON output", () => {
+    const result = parseCliOutput("{'type':'question','content':'Hi'}");
+    expect(result).toEqual({
+      result: { type: "question", content: "Hi" },
+      parseFailed: false,
+    });
+  });
 });
 
 describe("adapter prompt", () => {
