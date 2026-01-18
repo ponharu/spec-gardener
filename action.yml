@@ -16,6 +16,10 @@ inputs:
   custom_prompt:
     description: "Custom instructions to append to the prompt"
     required: false
+  mention_on:
+    description: "Comma-separated list of outcomes that should mention the issue author (question, complete, error)"
+    required: false
+    default: "question,complete,error"
 runs:
   using: "composite"
   steps:
@@ -35,3 +39,4 @@ runs:
         INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
         INPUT_AGENT_TIMEOUT_MS: ${{ inputs.agent_timeout_ms }}
         INPUT_CUSTOM_PROMPT: ${{ inputs.custom_prompt }}
+        INPUT_MENTION_ON: ${{ inputs.mention_on }}

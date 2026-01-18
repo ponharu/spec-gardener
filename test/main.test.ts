@@ -284,6 +284,7 @@ const setDefaultInputs = () => {
   coreInputs.set("github_token", "token");
   coreInputs.set("agent_timeout_ms", "120000");
   coreInputs.set("custom_prompt", "");
+  coreInputs.set("mention_on", "question,complete,error");
 };
 
 const resetCalls = () => {
@@ -441,6 +442,37 @@ describe("main", () => {
     expect(octokitCalls.createComment.length).toBe(1);
     const body = octokitCalls.updateIssue[0].body as string;
     expect(body).toContain("New spec");
+  });
+
+  it("respects mention_on for question only", async () => {
+    coreInputs.set("mention_on", "question");
+    spawnConfig.stdout = JSON.stringify({
+      type: "complete",
+      body: "New spec",
+      comment: "Updated successfully",
+    });
+    await writeEvent({ issue: { number: 12, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.createComment[0].body as string;
+    expect(body).toContain("Updated successfully");
+    expect(body.includes("@alice")).toBe(false);
+  });
+
+  it("respects mention_on empty string", async () => {
+    coreInputs.set("mention_on", "");
+    spawnConfig.stdout = JSON.stringify({
+      type: "question",
+      content: "Need more",
+    });
+    await writeEvent({ issue: { number: 40, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.createComment[0].body as string;
+    expect(body).toContain("Need more");
+    expect(body.includes("@alice")).toBe(false);
   });
 
   it("updates title when complete result includes refined title", async () => {
@@ -731,7 +763,19 @@ describe("main", () => {
     await main();
     expect(octokitCalls.createComment.length).toBe(1);
     const body = octokitCalls.createComment[0].body as string;
-    expectCommentStructure(body, "Spec Gardener encountered an error");
+    expectCommentStructure(body, "@alice Spec Gardener encountered an error");
+  });
+
+  it("mentions author on error when configured", async () => {
+    coreInputs.set("mention_on", "error");
+    spawnConfig.exitCode = 2;
+    spawnConfig.stderr = "error";
+    await writeEvent({ issue: { number: 41, body: "Hi" } });
+    const { main } = await import("../src/main");
+    await main();
+    expect(octokitCalls.createComment.length).toBe(1);
+    const body = octokitCalls.createComment[0].body as string;
+    expect(body).toContain("@alice");
   });
 
   it("places command hint in footer section for complete result comments", async () => {
