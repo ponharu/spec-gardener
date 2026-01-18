@@ -36,7 +36,7 @@ const fetchOriginalDescription = async (
       `query($owner: String!, $repo: String!, $number: Int!) {
         repository(owner: $owner, name: $repo) {
           ${itemType}(number: $number) {
-            userContentEdits(first: 1) {
+            userContentEdits(first: 100) {
               nodes {
                 body
               }
@@ -47,16 +47,22 @@ const fetchOriginalDescription = async (
       { owner, repo, number },
     );
     const content = response.repository?.[itemType];
-    const originalFromEdits = content?.userContentEdits?.nodes?.[0]?.body;
-    if (originalFromEdits) {
-      return originalFromEdits;
+    const nodes = content?.userContentEdits?.nodes ?? [];
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const body = nodes[index]?.body;
+      if (typeof body !== "string") {
+        continue;
+      }
+      if (!body.includes(FOOTER)) {
+        return body;
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? (error.message ?? error.stack) : String(error);
     const label = itemType === "issue" ? "issue description" : "pull request description";
     core.warning(`Failed to fetch original ${label}: ${message}`);
   }
-  return fallbackBody;
+  return stripFooter(fallbackBody);
 };
 
 export const fetchIssueContext = async (
@@ -71,14 +77,6 @@ export const fetchIssueContext = async (
     issue_number: issueNumber,
   });
   const issueBody = issueResponse.data.body ?? "";
-  const originalDescription = await fetchOriginalDescription(
-    octokit,
-    owner,
-    repo,
-    issueNumber,
-    "issue",
-    issueBody,
-  );
 
   const comments = await octokit.paginate(octokit.rest.issues.listComments, {
     owner,
@@ -91,7 +89,6 @@ export const fetchIssueContext = async (
     title: issueResponse.data.title ?? "",
     body: stripFooter(issueBody),
     author: issueResponse.data.user?.login ?? "unknown",
-    originalDescription,
     comments: comments.map((comment) => ({
       author: comment.user?.login ?? "unknown",
       body: comment.body ?? "",
@@ -112,14 +109,6 @@ export const fetchPullRequestContext = async (
     pull_number: pullNumber,
   });
   const pullBody = pullResponse.data.body ?? "";
-  const originalDescription = await fetchOriginalDescription(
-    octokit,
-    owner,
-    repo,
-    pullNumber,
-    "pullRequest",
-    pullBody,
-  );
 
   const comments = await octokit.paginate(octokit.rest.issues.listComments, {
     owner,
@@ -139,7 +128,6 @@ export const fetchPullRequestContext = async (
     title: pullResponse.data.title ?? "",
     body: stripFooter(pullBody),
     author: pullResponse.data.user?.login ?? "unknown",
-    originalDescription,
     comments: comments.map((comment) => ({
       author: comment.user?.login ?? "unknown",
       body: comment.body ?? "",
@@ -155,7 +143,15 @@ export const fetchPullRequestContext = async (
   };
 };
 
-export const applyResetContext = (context: SpecContext, resetCreatedAt?: string): SpecContext => {
+export const applyResetContext = async (
+  context: SpecContext,
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  number: number,
+  itemType: "issue" | "pullRequest",
+  resetCreatedAt?: string,
+): Promise<SpecContext> => {
   if (!resetCreatedAt) {
     return context;
   }
@@ -163,9 +159,17 @@ export const applyResetContext = (context: SpecContext, resetCreatedAt?: string)
   if (Number.isNaN(resetTime)) {
     return context;
   }
+  const resetBody = await fetchOriginalDescription(
+    octokit,
+    owner,
+    repo,
+    number,
+    itemType,
+    context.body,
+  );
   return {
     ...context,
-    body: context.originalDescription,
+    body: resetBody,
     comments: context.comments.filter((comment) => {
       const commentTime = Date.parse(comment.createdAt);
       if (Number.isNaN(commentTime)) {

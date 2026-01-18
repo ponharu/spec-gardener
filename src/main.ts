@@ -233,7 +233,17 @@ export const main = async (): Promise<void> => {
       ? await fetchPullRequestContext(octokit, owner, repo, issueNumber)
       : await fetchIssueContext(octokit, owner, repo, issueNumber);
     const adjustedContext =
-      command === "reset" ? applyResetContext(specContext, commandCreatedAt) : specContext;
+      command === "reset"
+        ? await applyResetContext(
+            specContext,
+            octokit,
+            owner,
+            repo,
+            issueNumber,
+            isPullRequestEvent ? "pullRequest" : "issue",
+            commandCreatedAt,
+          )
+        : specContext;
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(adjustedContext, customPrompt);

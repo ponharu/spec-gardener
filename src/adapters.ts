@@ -18,7 +18,6 @@ export type ChangedFile = {
 export type SpecContext = {
   title: string;
   body: string;
-  originalDescription: string;
   comments: IssueComment[];
   author: string;
   changedFiles?: ChangedFile[];

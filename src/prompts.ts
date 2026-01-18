@@ -79,11 +79,6 @@ const DEFAULT_PROMPT_TEMPLATE: PromptTemplate = {
       buildBody: (context) => context.title,
     },
     {
-      id: "original-description",
-      title: "# Original Description",
-      buildBody: (context) => context.originalDescription,
-    },
-    {
       id: "current-spec",
       title: "# Current Specification",
       buildBody: (context) => context.body,
