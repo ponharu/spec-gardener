@@ -67,12 +67,13 @@ Use these commands in issue and pull request comments to interact with Spec Gard
 
 ## Configuration
 
-| Input              | Description                                                                                                                                                                                                                                | Required               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| `github_token`     | Token to comment and update issues.                                                                                                                                                                                                        | Yes                    |
-| `agent`            | Agent to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                    |
-| `agent_timeout_ms` | Timeout in milliseconds for the agent execution.                                                                                                                                                                                           | No (default: `120000`) |
-| `custom_prompt`    | Custom instructions to append to the prompt.                                                                                                                                                                                               | No                     |
+| Input              | Description                                                                                                                                                                                                                                | Required                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| `github_token`     | Token to comment and update issues.                                                                                                                                                                                                        | Yes                                     |
+| `agent`            | Agent to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                                     |
+| `agent_timeout_ms` | Timeout in milliseconds for the agent execution.                                                                                                                                                                                           | No (default: `120000`)                  |
+| `custom_prompt`    | Custom instructions to append to the prompt.                                                                                                                                                                                               | No                                      |
+| `mention_on`       | Comma-separated list of outcomes that should mention the issue author (`question`, `complete`, `error`). Set to empty to disable mentions.                                                                                                 | No (default: `question,complete,error`) |
 
 ## Behavior
 

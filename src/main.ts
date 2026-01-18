@@ -13,11 +13,38 @@ import {
 } from "./format";
 import { formatLogBlock, formatParsedResult } from "./logging";
 
+type MentionOn = "question" | "complete" | "error";
+
+const parseMentionOn = (raw: string): Set<MentionOn> => {
+  const allowed: MentionOn[] = ["question", "complete", "error"];
+  const allowedSet = new Set<MentionOn>(allowed);
+  if (!raw.trim()) {
+    return new Set();
+  }
+  const result = new Set<MentionOn>();
+  for (const entry of raw.split(",")) {
+    const normalized = entry.trim().toLowerCase();
+    if (!normalized) {
+      continue;
+    }
+    if (allowedSet.has(normalized as MentionOn)) {
+      result.add(normalized as MentionOn);
+    } else {
+      core.warning(
+        `Invalid mention_on value "${entry.trim()}"; supported values: ${allowed.join(", ")}.`,
+      );
+    }
+  }
+  return result;
+};
+
 const postErrorComment = async (
   owner: string,
   repo: string,
   issueNumber: number,
   token: string,
+  authorLogin: string | undefined,
+  mentionAuthor: boolean,
 ): Promise<void> => {
   try {
     const serverUrl = process.env.GITHUB_SERVER_URL ?? "https://github.com";
@@ -30,7 +57,7 @@ const postErrorComment = async (
       owner,
       repo,
       issue_number: issueNumber,
-      body: buildErrorComment(runUrl),
+      body: buildErrorComment(runUrl, authorLogin, mentionAuthor),
     });
   } catch (commentError) {
     const fallback =
@@ -127,6 +154,7 @@ const applyResult = async (
   issueNumber: number,
   result: CliResult,
   specContext: SpecContext,
+  mentionOn: Set<MentionOn>,
 ): Promise<void> => {
   if (result.type === "no_change") {
     await octokit.rest.reactions.createForIssue({
@@ -138,7 +166,7 @@ const applyResult = async (
     return;
   }
   if (result.type === "question") {
-    const comment = buildComment(result.content, specContext.author);
+    const comment = buildComment(result.content, specContext.author, mentionOn.has("question"));
     await octokit.rest.issues.createComment({
       owner,
       repo,
@@ -173,6 +201,7 @@ const applyResult = async (
   const summaryComment = buildComment(
     result.comment ?? "Specification has been updated.",
     specContext.author,
+    mentionOn.has("complete"),
   );
   await octokit.rest.issues.createComment({
     owner,
@@ -187,11 +216,14 @@ export const main = async (): Promise<void> => {
   let repo = "";
   let issueNumber: number | undefined;
   let token = "";
+  let issueAuthor: string | undefined;
+  let mentionOn: Set<MentionOn> = new Set();
   try {
     const agent = getRequiredInput("agent");
     token = getRequiredInput("github_token");
     const timeoutMs = getTimeoutInput("agent_timeout_ms", DEFAULT_AGENT_TIMEOUT_MS);
     const customPrompt = core.getInput("custom_prompt");
+    mentionOn = parseMentionOn(core.getInput("mention_on"));
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
     [owner, repo] = repoSlug.split("/");
@@ -232,6 +264,7 @@ export const main = async (): Promise<void> => {
     const specContext = isPullRequestEvent
       ? await fetchPullRequestContext(octokit, owner, repo, issueNumber)
       : await fetchIssueContext(octokit, owner, repo, issueNumber);
+    issueAuthor = specContext.author;
     const adjustedContext =
       command === "reset"
         ? await applyResetContext(
@@ -256,11 +289,11 @@ export const main = async (): Promise<void> => {
       core.error(`Failed to parse agent output as JSON.`);
     }
 
-    await applyResult(octokit, owner, repo, issueNumber, result, adjustedContext);
+    await applyResult(octokit, owner, repo, issueNumber, result, adjustedContext, mentionOn);
   } catch (error) {
     const message = error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
     if (owner && repo && issueNumber && token) {
-      await postErrorComment(owner, repo, issueNumber, token);
+      await postErrorComment(owner, repo, issueNumber, token, issueAuthor, mentionOn.has("error"));
     }
     core.setFailed(message);
   }
