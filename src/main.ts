@@ -44,10 +44,7 @@ const stripFooter = (body: string): string => {
   return withoutFooter.replace(/\n---\s*$/, "").trimEnd();
 };
 
-const applyResetContext = (
-  context: SpecContext,
-  resetCreatedAt?: string,
-): SpecContext => {
+const applyResetContext = (context: SpecContext, resetCreatedAt?: string): SpecContext => {
   if (!resetCreatedAt) {
     return context;
   }
@@ -88,6 +85,10 @@ const buildHelpComment = (): string => {
 
 ---
 ${FOOTER}`;
+};
+
+const normalizeTitle = (title: string): string => {
+  return title.replace(/\s+/g, " ").trim();
 };
 
 const buildErrorComment = (runUrl: string): string => {
@@ -140,9 +141,7 @@ const getTimeoutInput = (name: string, fallbackMs: number): number => {
   }
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
-    core.warning(
-      `Invalid ${name} value "${raw}", falling back to ${fallbackMs}ms.`,
-    );
+    core.warning(`Invalid ${name} value "${raw}", falling back to ${fallbackMs}ms.`);
     return fallbackMs;
   }
   return parsed;
@@ -190,10 +189,8 @@ const fetchOriginalDescription = async (
       return originalFromEdits;
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? (error.message ?? error.stack) : String(error);
-    const label =
-      itemType === "issue" ? "issue description" : "pull request description";
+    const message = error instanceof Error ? (error.message ?? error.stack) : String(error);
+    const label = itemType === "issue" ? "issue description" : "pull request description";
     core.warning(`Failed to fetch original ${label}: ${message}`);
   }
   return fallbackBody;
@@ -386,12 +383,26 @@ const applyResult = async (
   }
 
   const newBody = buildSpecBody(result.body);
-  await octokit.rest.issues.update({
+  const updateParams: {
+    owner: string;
+    repo: string;
+    issue_number: number;
+    body: string;
+    title?: string;
+  } = {
     owner,
     repo,
     issue_number: issueNumber,
     body: newBody,
-  });
+  };
+  if (result.title) {
+    const normalizedTitle = normalizeTitle(result.title);
+    const currentTitle = normalizeTitle(specContext.title);
+    if (normalizedTitle && normalizedTitle !== currentTitle) {
+      updateParams.title = normalizedTitle;
+    }
+  }
+  await octokit.rest.issues.update(updateParams);
 
   const summaryComment = buildComment(
     result.comment ?? "Specification has been updated.",
@@ -447,8 +458,7 @@ const shouldProcess = (
     if (hasFooter(pullBody)) {
       return {
         shouldRun: false,
-        reason:
-          "Skipping: pull request body already contains Spec Gardener footer.",
+        reason: "Skipping: pull request body already contains Spec Gardener footer.",
       };
     }
     return { shouldRun: true };
@@ -474,10 +484,7 @@ export const main = async (): Promise<void> => {
   try {
     const agent = getRequiredInput("agent");
     token = getRequiredInput("github_token");
-    const timeoutMs = getTimeoutInput(
-      "agent_timeout_ms",
-      DEFAULT_AGENT_TIMEOUT_MS,
-    );
+    const timeoutMs = getTimeoutInput("agent_timeout_ms", DEFAULT_AGENT_TIMEOUT_MS);
     const customPrompt = core.getInput("custom_prompt");
 
     const repoSlug = process.env.GITHUB_REPOSITORY ?? "";
@@ -494,17 +501,13 @@ export const main = async (): Promise<void> => {
     const eventName = process.env.GITHUB_EVENT_NAME ?? "";
     const event = JSON.parse(await Bun.file(eventPath).text()) as EventPayload;
 
-    const { shouldRun, reason, command, commandCreatedAt } = shouldProcess(
-      eventName,
-      event,
-    );
+    const { shouldRun, reason, command, commandCreatedAt } = shouldProcess(eventName, event);
     if (!shouldRun) {
       core.info(reason ?? "Skipping processing.");
       return;
     }
 
-    const isPullRequestEvent =
-      eventName === "pull_request" || Boolean(event.issue?.pull_request);
+    const isPullRequestEvent = eventName === "pull_request" || Boolean(event.issue?.pull_request);
     issueNumber = event.pull_request?.number ?? event.issue?.number;
     if (!issueNumber) {
       throw new Error("Missing issue number in event payload.");
@@ -524,9 +527,7 @@ export const main = async (): Promise<void> => {
       ? await fetchPullRequestContext(octokit, owner, repo, issueNumber)
       : await fetchIssueContext(octokit, owner, repo, issueNumber);
     const adjustedContext =
-      command === "reset"
-        ? applyResetContext(specContext, commandCreatedAt)
-        : specContext;
+      command === "reset" ? applyResetContext(specContext, commandCreatedAt) : specContext;
     const adapter = getAdapter(agent);
     const { cmd, args } = adapter.buildCommand();
     const prompt = adapter.buildPrompt(adjustedContext, customPrompt);
@@ -537,17 +538,9 @@ export const main = async (): Promise<void> => {
       core.error(`Failed to parse agent output as JSON.`);
     }
 
-    await applyResult(
-      octokit,
-      owner,
-      repo,
-      issueNumber,
-      result,
-      adjustedContext,
-    );
+    await applyResult(octokit, owner, repo, issueNumber, result, adjustedContext);
   } catch (error) {
-    const message =
-      error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
+    const message = error instanceof Error ? (error.stack ?? error.message) : "Unknown error";
     if (owner && repo && issueNumber && token) {
       await postErrorComment(owner, repo, issueNumber, token);
     }

@@ -1,16 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import {
-  getAdapter,
-  getAgentConfig,
-  parseCliOutput,
-  type SpecContext,
-} from "../src/adapters";
+import { getAdapter, getAgentConfig, parseCliOutput, type SpecContext } from "../src/adapters";
 
 describe("parseCliOutput", () => {
   it("parses question JSON", () => {
-    const result = parseCliOutput(
-      JSON.stringify({ type: "question", content: "Need more info" }),
-    );
+    const result = parseCliOutput(JSON.stringify({ type: "question", content: "Need more info" }));
     expect(result).toEqual({
       result: { type: "question", content: "Need more info" },
       parseFailed: false,
@@ -18,14 +11,31 @@ describe("parseCliOutput", () => {
   });
 
   it("parses completion JSON", () => {
+    const result = parseCliOutput(JSON.stringify({ type: "complete", body: "Spec body" }));
+    expect(result).toEqual({
+      result: {
+        type: "complete",
+        body: "Spec body",
+        comment: "Spec updated by Spec Gardener.",
+      },
+      parseFailed: false,
+    });
+  });
+
+  it("parses completion JSON with title", () => {
     const result = parseCliOutput(
-      JSON.stringify({ type: "complete", body: "Spec body" }),
+      JSON.stringify({
+        type: "complete",
+        body: "Spec body",
+        title: "Refined title",
+      }),
     );
     expect(result).toEqual({
       result: {
         type: "complete",
         body: "Spec body",
         comment: "Spec updated by Spec Gardener.",
+        title: "Refined title",
       },
       parseFailed: false,
     });

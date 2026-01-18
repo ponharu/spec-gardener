@@ -23,7 +23,7 @@ export type SpecContext = {
 
 export type CliResult =
   | { type: "question"; content: string }
-  | { type: "complete"; body: string; comment?: string }
+  | { type: "complete"; body: string; comment?: string; title?: string }
   | { type: "no_change" };
 
 export type ParseResult = {
@@ -50,12 +50,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   claude: {
     name: "claude",
     package: "@anthropic-ai/claude-code@latest",
-    args: [
-      "--dangerously-skip-permissions",
-      "--allowed-tools",
-      "Read,Glob,Grep,Bash",
-      "--print",
-    ],
+    args: ["--dangerously-skip-permissions", "--allowed-tools", "Read,Glob,Grep,Bash", "--print"],
   },
   codex: {
     name: "codex",
@@ -73,10 +68,7 @@ const appendSection = (parts: string[], title: string, body: string): void => {
   parts.push("", title, body || "(empty)");
 };
 
-const buildDefaultPrompt = (
-  context: SpecContext,
-  customPrompt?: string,
-): string => {
+const buildDefaultPrompt = (context: SpecContext, customPrompt?: string): string => {
   const comments = context.comments
     .map(
       (comment, index) =>
@@ -90,6 +82,7 @@ const buildDefaultPrompt = (
     "If the specification is insufficient, ask clarifying questions.",
     "If the specification is sufficient and no changes are needed, output no_change.",
     "If the specification is sufficient and needs updates, output the completed spec.",
+    "When outputting a completed spec, you may include a refined title only if the current title needs improvement.",
     "Do not include code examples, snippets, pseudo-code, or code blocks.",
     "Focus on requirements, functional changes, and expected behavior, not implementation details.",
     "Use implementation-agnostic language that is clear and readable to any engineer.",
@@ -98,7 +91,7 @@ const buildDefaultPrompt = (
     "Format:",
     '{"type":"question","content":"..."}',
     "or",
-    '{"type":"complete","body":"...","comment":"optional completion comment"}',
+    '{"type":"complete","body":"...","comment":"optional completion comment","title":"optional refined title"}',
     "or",
     '{"type":"no_change"}',
   ];
@@ -109,11 +102,7 @@ const buildDefaultPrompt = (
   }
 
   appendSection(promptParts, "# Issue Title", context.title);
-  appendSection(
-    promptParts,
-    "# Original Description",
-    context.originalDescription,
-  );
+  appendSection(promptParts, "# Original Description", context.originalDescription);
   appendSection(promptParts, "# Current Specification", context.body);
   appendSection(promptParts, "# Comments", comments || "(no comments)");
   if (context.changedFiles) {
@@ -138,16 +127,19 @@ const parseJsonResult = (candidate: string): CliResult | null => {
     content?: string;
     body?: string;
     comment?: string;
+    title?: string;
   };
   const type = parsed.type ?? parsed.status;
   if (type === "question" && parsed.content) {
     return { type: "question", content: parsed.content };
   }
   if (type === "complete" && parsed.body) {
+    const title = typeof parsed.title === "string" ? parsed.title : undefined;
     return {
       type: "complete",
       body: parsed.body,
       comment: parsed.comment || DEFAULT_COMPLETION_COMMENT,
+      title,
     };
   }
   if (type === "no_change") {
