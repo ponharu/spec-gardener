@@ -46,10 +46,8 @@ const fetchOriginalDescription = async (
       }`,
       { owner, repo, number },
     );
-    const originalFromEdits =
-      itemType === "issue"
-        ? response.repository?.issue?.userContentEdits?.nodes?.[0]?.body
-        : response.repository?.pullRequest?.userContentEdits?.nodes?.[0]?.body;
+    const content = response.repository?.[itemType];
+    const originalFromEdits = content?.userContentEdits?.nodes?.[0]?.body;
     if (originalFromEdits) {
       return originalFromEdits;
     }

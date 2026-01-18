@@ -129,4 +129,4 @@ export const buildPrompt = (
   return parts.join("\n");
 };
 
-export { type PromptTemplate, type PromptTemplateSection };
+export type { PromptTemplate, PromptTemplateSection };
