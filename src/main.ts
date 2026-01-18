@@ -1,6 +1,6 @@
 import core from "@actions/core";
 import { Octokit } from "octokit";
-import { getAdapter, type CliResult } from "./adapters";
+import { getAdapter, type CliResult, type SpecContext } from "./adapters";
 import { shouldProcess, type EventPayload } from "./commands";
 import { applyResetContext, fetchIssueContext, fetchPullRequestContext } from "./context";
 import { DEFAULT_AGENT_TIMEOUT_MS, THUMBS_UP_REACTION } from "./constants";
