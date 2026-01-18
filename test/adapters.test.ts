@@ -161,9 +161,10 @@ describe("adapter prompt", () => {
 });
 
 describe("adapter selection", () => {
-  it("falls back for unknown agent", () => {
-    const adapter = getAdapter("custom-agent");
-    expect(adapter.buildCommand().args).toContain("custom-agent");
+  it("throws for unknown agent", () => {
+    expect(() => getAdapter("custom-agent")).toThrow(
+      'Unknown agent "custom-agent". Supported agents: claude, codex, gemini',
+    );
   });
 
   it("exposes known agent config", () => {

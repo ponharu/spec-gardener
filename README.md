@@ -8,7 +8,7 @@ GitHub Action that transforms vague issues and pull requests into detailed, code
 
 ## Requirements
 
-- One of the supported agent CLIs available on PATH (or installable via `bunx`)
+- One of the supported agent CLIs (`codex`, `claude`, `gemini`) available on PATH (or installable via `bunx`)
 - `GITHUB_TOKEN` with `issues: write` and `pull-requests: read` permissions
 
 ## How It Works
@@ -67,12 +67,12 @@ Use these commands in issue and pull request comments to interact with Spec Gard
 
 ## Configuration
 
-| Input              | Description                                                                                                                                                                                                                                      | Required               |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| `github_token`     | Token to comment and update issues.                                                                                                                                                                                                              | Yes                    |
-| `agent`            | CLI command to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                    |
-| `agent_timeout_ms` | Timeout in milliseconds for the agent execution.                                                                                                                                                                                                 | No (default: `120000`) |
-| `custom_prompt`    | Custom instructions to append to the prompt.                                                                                                                                                                                                     | No                     |
+| Input              | Description                                                                                                                                                                                                                                | Required               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| `github_token`     | Token to comment and update issues.                                                                                                                                                                                                        | Yes                    |
+| `agent`            | Agent to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                    |
+| `agent_timeout_ms` | Timeout in milliseconds for the agent execution.                                                                                                                                                                                           | No (default: `120000`) |
+| `custom_prompt`    | Custom instructions to append to the prompt.                                                                                                                                                                                               | No                     |
 
 ## Behavior
 
@@ -116,7 +116,7 @@ Comments include available commands and mention the issue author:
 
 ## Agents
 
-Built-in adapters: `codex`, `claude`, `gemini`.
+Built-in adapters: `codex`, `claude`, `gemini`. Unknown agent names are rejected.
 
 All agents receive the prompt via stdin and must return JSON.
 

@@ -147,12 +147,8 @@ export const getAdapter = (agent: string): ProviderAdapter => {
     return createAdapter(config);
   }
 
-  // Fallback for unknown agents: use agent name as package
-  return createAdapter({
-    name: key,
-    package: key,
-    args: [],
-  });
+  const supported = Object.keys(AGENT_CONFIGS).join(", ");
+  throw new Error(`Unknown agent "${agent}". Supported agents: ${supported}`);
 };
 
 export const getAgentConfig = (agent: string): AgentConfig | undefined => {
