@@ -147,7 +147,7 @@ export const getAdapter = (agent: string): ProviderAdapter => {
     return createAdapter(config);
   }
 
-  const supported = Object.keys(AGENT_CONFIGS).join(", ");
+  const supported = Object.keys(AGENT_CONFIGS).sort().join(", ");
   throw new Error(`Unknown agent "${agent}". Supported agents: ${supported}`);
 };
 
