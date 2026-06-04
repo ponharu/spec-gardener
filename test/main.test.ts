@@ -163,6 +163,7 @@ const expectCommentStructure = (body: string, contentMarker: string) => {
 };
 
 mock.module("@actions/core", () => ({
+  ...coreMock,
   default: coreMock,
 }));
 
