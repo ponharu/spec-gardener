@@ -1,3 +1,5 @@
 {
-  "extends": ["recommended"]
+  "categories": {
+    "correctness": "error"
+  }
 }
