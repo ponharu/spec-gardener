@@ -1,4 +1,4 @@
-import core from "@actions/core";
+import * as core from "@actions/core";
 import { Octokit } from "octokit";
 import { getAdapter, type CliResult, type SpecContext } from "./adapters";
 import { shouldProcess, type EventPayload } from "./commands";

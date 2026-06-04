@@ -1,4 +1,4 @@
-import core from "@actions/core";
+import * as core from "@actions/core";
 import { Octokit } from "octokit";
 import type { SpecContext } from "./adapters";
 import { FOOTER } from "./constants";
