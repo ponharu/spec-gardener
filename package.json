@@ -42,9 +42,9 @@
     "bun-types": "1.4.2",
     "conventional-changelog-conventionalcommits": "10.4.0",
     "lefthook": "2.1.14",
-    "lint-staged": "17.5.1",
-    "oxfmt": "0.70.0",
-    "oxlint": "1.85.0",
+    "lint-staged": "17.6.0",
+    "oxfmt": "0.71.0",
+    "oxlint": "1.86.0",
     "semantic-release": "25.0.9",
     "typescript": "7.0.2"
   },
