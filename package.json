@@ -39,7 +39,7 @@
     "@semantic-release/exec": "7.1.0",
     "@semantic-release/github": "12.0.10",
     "@semantic-release/release-notes-generator": "14.1.1",
-    "bun-types": "1.4.3",
+    "bun-types": "1.4.4",
     "conventional-changelog-conventionalcommits": "10.4.1",
     "lefthook": "2.2.2",
     "lint-staged": "17.6.0",
@@ -51,5 +51,5 @@
   "engines": {
     "bun": ">=1.3.6"
   },
-  "packageManager": "bun@1.4.3"
+  "packageManager": "bun@1.4.4"
 }
