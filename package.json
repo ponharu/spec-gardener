@@ -22,12 +22,14 @@
   },
   "type": "module",
   "scripts": {
-    "check": "bun run typecheck && bun run lint && bun run test",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
     "lint": "bun oxlint",
     "lint-fix": "bun oxlint --fix",
     "format": "bun oxfmt --no-error-on-unmatched-pattern",
     "typecheck": "tsc --noEmit --pretty",
-    "test": "bun test"
+    "test": "bun test",
+    "format:check": "oxfmt --check .",
+    "release": "semantic-release"
   },
   "dependencies": {
     "@actions/core": "3.0.1",
