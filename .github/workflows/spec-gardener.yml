@@ -6,7 +6,7 @@ on:
       - edited
       - labeled
   issue_comment:
-    types: 
+    types:
       - created
 
 jobs:
@@ -17,10 +17,12 @@ jobs:
       issues: write
       contents: read
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run Spec Gardener
-        uses: ponharu/spec-gardener@main
+        uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           agent: "gemini"

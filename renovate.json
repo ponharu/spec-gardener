@@ -3,30 +3,46 @@
   "dependencyDashboardAutoclose": true,
   "extends": [
     "config:recommended",
-    ":automergePr",
-    ":dependencyDashboard", 
+    ":dependencyDashboard",
+    ":approveMajorUpdates",
     ":semanticCommits",
-    ":maintainLockFilesWeekly",
-    "group:allNonMajor"
+    "helpers:pinGitHubActionDigests"
   ],
   "labels": ["dependencies"],
   "packageRules": [
     {
-      "matchDatasources": ["npm"],
-      "minimumReleaseAge": "7 days"
-    },
-    {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true
+      "description": "Require manual review before merging dependency updates",
+      "matchPackageNames": ["*"],
+      "automerge": false
     },
     {
       "matchUpdateTypes": ["major"],
-      "automerge": false,
       "reviewers": ["ponharu"]
     }
   ],
   "rangeStrategy": "pin",
   "schedule": ["after 10pm every weekday", "before 3am every weekday"],
   "separateMultipleMajor": true,
-  "timezone": "Asia/Tokyo"
+  "timezone": "Asia/Tokyo",
+  "minimumReleaseAge": "7 days",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "minimumReleaseAge": "0 days",
+    "dependencyDashboardApproval": false,
+    "automerge": false
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 4am on monday"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^src\\/adapters\\.ts$/"],
+      "matchStrings": [
+        "package:\\s*\"(?<depName>@[^\"@]+/[^\"@]+)@(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "datasourceTemplate": "npm"
+    }
+  ]
 }

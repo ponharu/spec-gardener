@@ -51,17 +51,17 @@ const DEFAULT_COMPLETION_COMMENT = "Spec updated by Spec Gardener.";
 const AGENT_CONFIGS: Record<string, AgentConfig> = {
   claude: {
     name: "claude",
-    package: "@anthropic-ai/claude-code@latest",
+    package: "@anthropic-ai/claude-code@2.1.310",
     args: ["--dangerously-skip-permissions", "--allowed-tools", "Read,Glob,Grep,Bash", "--print"],
   },
   codex: {
     name: "codex",
-    package: "@openai/codex@latest",
+    package: "@openai/codex@0.164.0",
     args: ["exec", "--dangerously-bypass-approvals-and-sandbox"],
   },
   gemini: {
     name: "gemini",
-    package: "@google/gemini-cli@latest",
+    package: "@google/gemini-cli@0.65.0",
     args: ["--approval-mode", "yolo"],
   },
 };

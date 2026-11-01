@@ -8,7 +8,7 @@ GitHub Action that transforms vague issues and pull requests into detailed, code
 
 ## Requirements
 
-- One of the supported agent CLIs (`codex`, `claude`, `gemini`) available on PATH (or installable via `bunx`)
+- Network access for Bun to install the pinned agent CLI package through `bunx` (`codex`, `claude`, or `gemini`)
 - `GITHUB_TOKEN` with `issues: write` and `pull-requests: read` permissions
 
 ## How It Works
@@ -24,7 +24,7 @@ GitHub Action that transforms vague issues and pull requests into detailed, code
 
 ## Usage
 
-Create `.github/workflows/spec-gardener.yml`:
+Create `.github/workflows/spec-gardener.yml`. Replace `REVIEWED_COMMIT_SHA` with the full 40-character commit SHA of the release you have reviewed:
 
 ```yaml
 name: Spec Gardener
@@ -44,10 +44,12 @@ jobs:
       pull-requests: read
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Run Spec Gardener
-        uses: ponharu/spec-gardener@main
+        uses: ponharu/spec-gardener@REVIEWED_COMMIT_SHA
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           agent: "codex"
@@ -70,10 +72,12 @@ Use these commands in issue and pull request comments to interact with Spec Gard
 | Input              | Description                                                                                                                                                                                                                                | Required                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
 | `github_token`     | Token to comment and update issues.                                                                                                                                                                                                        | Yes                                     |
-| `agent`            | Agent to execute (`codex`, `claude`, `gemini`). If the command is not on PATH, Spec Gardener runs it via `bunx` using mapped packages: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                                     |
+| `agent`            | Agent to execute (`codex`, `claude`, `gemini`). Spec Gardener runs a pinned package version via `bunx`, independently of CLIs on PATH: `claude` → `@anthropic-ai/claude-code`, `codex` → `@openai/codex`, `gemini` → `@google/gemini-cli`. | Yes                                     |
 | `agent_timeout_ms` | Timeout in milliseconds for the agent execution.                                                                                                                                                                                           | No (default: `120000`)                  |
 | `custom_prompt`    | Custom instructions to append to the prompt.                                                                                                                                                                                               | No                                      |
 | `mention_on`       | Comma-separated list of outcomes that should mention the issue author (`question`, `complete`, `error`). Set to empty to disable mentions.                                                                                                 | No (default: `question,complete,error`) |
+
+The Action reads its Bun version from its own `package.json` and installs production dependencies from `bun.lock`. Agent CLI versions are pinned in `src/adapters.ts` and updated through Renovate. Their transitive dependencies are resolved by `bunx` and are not covered by the Action lockfile.
 
 ## Behavior
 
