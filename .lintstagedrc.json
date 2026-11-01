@@ -1,3 +1,4 @@
 {
-  "*.{ts,tsx,js,jsx,json,md,yml,yaml}": ["bun oxfmt --no-error-on-unmatched-pattern", "bun oxlint"]
+  "*.{ts,tsx,js,jsx}": ["bun oxfmt --write --no-error-on-unmatched-pattern", "bun oxlint"],
+  "*.{json,md,yml,yaml}": ["bun oxfmt --write --no-error-on-unmatched-pattern"]
 }
