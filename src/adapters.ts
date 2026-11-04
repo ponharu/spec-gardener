@@ -61,7 +61,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   },
   gemini: {
     name: "gemini",
-    package: "@google/gemini-cli@0.65.0",
+    package: "@google/gemini-cli@0.66.0",
     args: ["--approval-mode", "yolo"],
   },
 };
