@@ -56,7 +56,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
   },
   codex: {
     name: "codex",
-    package: "@openai/codex@0.164.0",
+    package: "@openai/codex@0.166.0",
     args: ["exec", "--dangerously-bypass-approvals-and-sandbox"],
   },
   gemini: {
