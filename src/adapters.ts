@@ -51,7 +51,7 @@ const DEFAULT_COMPLETION_COMMENT = "Spec updated by Spec Gardener.";
 const AGENT_CONFIGS: Record<string, AgentConfig> = {
   claude: {
     name: "claude",
-    package: "@anthropic-ai/claude-code@2.1.310",
+    package: "@anthropic-ai/claude-code@2.1.316",
     args: ["--dangerously-skip-permissions", "--allowed-tools", "Read,Glob,Grep,Bash", "--print"],
   },
   codex: {
